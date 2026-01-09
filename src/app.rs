@@ -350,6 +350,14 @@ impl App {
                 self.seek_relative(-10)?;
             }
 
+            Action::SeekForwardLarge => {
+                self.seek_relative(60)?;
+            }
+
+            Action::SeekBackwardLarge => {
+                self.seek_relative(-60)?;
+            }
+
             Action::VolumeUp => {
                 let new_vol = (self.now_playing.volume as i32 + 10).min(100) as u8;
                 self.now_playing.volume = new_vol;

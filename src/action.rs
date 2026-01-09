@@ -40,6 +40,8 @@ pub enum Action {
     PreviousTrack,
     SeekForward,
     SeekBackward,
+    SeekForwardLarge,
+    SeekBackwardLarge,
     VolumeUp,
     VolumeDown,
     ToggleShuffle,

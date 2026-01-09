@@ -186,6 +186,8 @@ fn handle_key_event(code: KeyCode, modifiers: KeyModifiers, app: &App) -> Action
             KeyCode::Char('p') => return Action::PreviousTrack,
             KeyCode::Char('.') | KeyCode::Char('>') => return Action::SeekForward,
             KeyCode::Char(',') | KeyCode::Char('<') => return Action::SeekBackward,
+            KeyCode::Char(']') => return Action::SeekForwardLarge,
+            KeyCode::Char('[') => return Action::SeekBackwardLarge,
             KeyCode::Char('+') | KeyCode::Char('=') => return Action::VolumeUp,
             KeyCode::Char('-') => return Action::VolumeDown,
             _ => return Action::None,
@@ -236,6 +238,8 @@ fn handle_key_event(code: KeyCode, modifiers: KeyModifiers, app: &App) -> Action
         KeyCode::Char('r') => Action::CycleRepeat,
         KeyCode::Char('.') | KeyCode::Char('>') => Action::SeekForward,
         KeyCode::Char(',') | KeyCode::Char('<') => Action::SeekBackward,
+        KeyCode::Char(']') => Action::SeekForwardLarge,
+        KeyCode::Char('[') => Action::SeekBackwardLarge,
 
         // Volume
         KeyCode::Char('+') | KeyCode::Char('=') => Action::VolumeUp,

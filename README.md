@@ -108,6 +108,7 @@ Options:
 | `Space` | Play/Pause |
 | `n` / `p` | Next/Previous track |
 | `,` / `.` | Seek backward/forward (10s) |
+| `[` / `]` | Seek backward/forward (1 min) |
 | `+` / `-` | Volume up/down |
 | `s` | Toggle shuffle |
 | `r` | Cycle repeat mode (Off → All → One) |
