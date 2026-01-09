@@ -230,7 +230,7 @@ pub fn render_now_playing(frame: &mut Frame, area: Rect, state: &mut NowPlayingS
         .constraints([
             Constraint::Length(3),  // Play state
             Constraint::Min(20),    // Song info
-            Constraint::Length(28), // Time + controls + volume
+            Constraint::Length(36), // Time + controls + volume
         ])
         .split(chunks[0]);
 
