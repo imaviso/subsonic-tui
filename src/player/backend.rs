@@ -355,6 +355,10 @@ fn run_player_thread(
     let mut current_duration: Option<Duration> = None;
     let mut current_audio_data: Option<Vec<u8>> = None;
     let mut current_volume: f32 = 0.8;
+    // Flag to prevent false TrackEnded events during seek operations
+    let mut is_seeking: bool = false;
+    // Track the last known play time for accurate position tracking
+    let mut last_tick_time: Option<std::time::Instant> = None;
 
     loop {
         // Check for commands (non-blocking)
@@ -389,6 +393,7 @@ fn run_player_thread(
                             } else {
                                 state.is_playing.store(true, Ordering::SeqCst);
                                 state.position_ms.store(0, Ordering::SeqCst);
+                                last_tick_time = Some(std::time::Instant::now());
                                 let _ =
                                     event_tx.send(PlayerEvent::StateChanged(PlayerState::Playing));
                             }
@@ -401,11 +406,13 @@ fn run_player_thread(
                 PlayerCommand::Pause => {
                     sink.lock().unwrap().pause();
                     state.is_playing.store(false, Ordering::SeqCst);
+                    last_tick_time = None; // Stop tracking time while paused
                     let _ = event_tx.send(PlayerEvent::StateChanged(PlayerState::Paused));
                 }
                 PlayerCommand::Resume => {
                     sink.lock().unwrap().play();
                     state.is_playing.store(true, Ordering::SeqCst);
+                    last_tick_time = Some(std::time::Instant::now()); // Resume tracking
                     let _ = event_tx.send(PlayerEvent::StateChanged(PlayerState::Playing));
                 }
                 PlayerCommand::Stop => {
@@ -417,6 +424,7 @@ fn run_player_thread(
                     current_audio_data = None;
                     state.is_playing.store(false, Ordering::SeqCst);
                     state.position_ms.store(0, Ordering::SeqCst);
+                    last_tick_time = None;
                     let _ = event_tx.send(PlayerEvent::StateChanged(PlayerState::Stopped));
                 }
                 PlayerCommand::SetVolume(vol) => {
@@ -428,6 +436,12 @@ fn run_player_thread(
                     // the new position. This is fast because symphonia seeks directly
                     // to the position in the compressed stream.
                     if let Some(ref audio_data) = current_audio_data {
+                        // Remember if we were playing before seek
+                        let was_playing = state.is_playing.load(Ordering::SeqCst);
+                        
+                        // Set seeking flag to prevent false TrackEnded events
+                        is_seeking = true;
+                        
                         {
                             let s = sink.lock().unwrap();
                             s.stop();
@@ -443,8 +457,19 @@ fn run_player_thread(
                             state
                                 .position_ms
                                 .store(position.as_millis() as u64, Ordering::SeqCst);
-                            state.is_playing.store(true, Ordering::SeqCst);
-                            let _ = event_tx.send(PlayerEvent::StateChanged(PlayerState::Playing));
+                            
+                            // Restore previous play/pause state
+                            if was_playing {
+                                state.is_playing.store(true, Ordering::SeqCst);
+                                last_tick_time = Some(std::time::Instant::now());
+                                // Sink is already playing from play_audio_data
+                            } else {
+                                // Was paused, so pause after seek
+                                sink.lock().unwrap().pause();
+                                state.is_playing.store(false, Ordering::SeqCst);
+                                last_tick_time = None;
+                                let _ = event_tx.send(PlayerEvent::StateChanged(PlayerState::Paused));
+                            }
                         }
                     }
                 }
@@ -456,23 +481,32 @@ fn run_player_thread(
             }
         }
 
-        // Check if track ended
-        if sink.lock().unwrap().empty() && state.is_playing.load(Ordering::SeqCst) {
+        // Check if track ended (but not during seek operations)
+        if !is_seeking && sink.lock().unwrap().empty() && state.is_playing.load(Ordering::SeqCst) {
             state.is_playing.store(false, Ordering::SeqCst);
             let _ = event_tx.send(PlayerEvent::TrackEnded);
         }
+        
+        // Reset seeking flag after track-end check
+        is_seeking = false;
 
-        // Update progress (approximate based on time elapsed)
+        // Update progress based on actual elapsed time
         if state.is_playing.load(Ordering::SeqCst) {
-            // Increment position by tick interval
-            let current = state.position_ms.load(Ordering::SeqCst);
-            state.position_ms.store(current + 100, Ordering::SeqCst);
+            if let Some(last_time) = last_tick_time {
+                let elapsed_ms = last_time.elapsed().as_millis() as u64;
+                let current = state.position_ms.load(Ordering::SeqCst);
+                state.position_ms.store(current + elapsed_ms, Ordering::SeqCst);
+                last_tick_time = Some(std::time::Instant::now());
 
-            if let Some(dur) = current_duration {
-                let _ = event_tx.send(PlayerEvent::Progress {
-                    position: Duration::from_millis(current),
-                    duration: dur,
-                });
+                if let Some(dur) = current_duration {
+                    let _ = event_tx.send(PlayerEvent::Progress {
+                        position: Duration::from_millis(current + elapsed_ms),
+                        duration: dur,
+                    });
+                }
+            } else {
+                // Initialize last_tick_time if not set
+                last_tick_time = Some(std::time::Instant::now());
             }
         }
 

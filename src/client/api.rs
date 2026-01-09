@@ -52,7 +52,10 @@ impl SubsonicClient {
     /// Create a new API client.
     pub fn new(base_url: impl Into<String>, auth: Auth) -> Self {
         Self {
-            client: Client::new(),
+            client: Client::builder()
+                .timeout(std::time::Duration::from_secs(30))
+                .build()
+                .unwrap_or_else(|_| Client::new()),
             base_url: base_url.into().trim_end_matches('/').to_string(),
             auth,
             client_name: String::from("subsonic-tui"),

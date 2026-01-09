@@ -1237,6 +1237,7 @@ impl App {
                 Err(e) => {
                     self.library.loading = false;
                     tracing::error!("Failed to load artists: {}", e);
+                    self.error_message = Some(format!("Failed to load artists: {}", e));
                 }
             }
         }
@@ -1254,6 +1255,7 @@ impl App {
                 Err(e) => {
                     self.library.loading = false;
                     tracing::error!("Failed to load albums: {}", e);
+                    self.error_message = Some(format!("Failed to load albums: {}", e));
                 }
             }
         }
@@ -1301,6 +1303,7 @@ impl App {
                 }
                 Err(e) => {
                     tracing::error!("Failed to load playlists: {}", e);
+                    self.error_message = Some(format!("Failed to load playlists: {}", e));
                 }
             }
         }
@@ -1335,6 +1338,7 @@ impl App {
                 Err(e) => {
                     self.library.loading = false;
                     tracing::error!("Failed to load songs: {}", e);
+                    self.error_message = Some(format!("Failed to load songs: {}", e));
                 }
             }
         }
@@ -1352,6 +1356,7 @@ impl App {
                 Err(e) => {
                     self.library.loading = false;
                     tracing::error!("Failed to load genres: {}", e);
+                    self.error_message = Some(format!("Failed to load genres: {}", e));
                 }
             }
         }
@@ -1390,6 +1395,7 @@ impl App {
                 Err(e) => {
                     self.library.loading = false;
                     tracing::error!("Failed to load favorites: {}", e);
+                    self.error_message = Some(format!("Failed to load favorites: {}", e));
                 }
             }
         }
