@@ -535,9 +535,12 @@ fn run_player_thread(
     Ok(())
 }
 
-/// Fetch audio data from URL.
+/// Fetch audio data from URL with timeout.
 fn fetch_audio_data(url: &str) -> Result<Vec<u8>> {
-    let response = reqwest::blocking::get(url)?;
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(60))
+        .build()?;
+    let response = client.get(url).send()?;
     let bytes = response.bytes()?;
     Ok(bytes.to_vec())
 }

@@ -136,7 +136,10 @@ impl Config {
         }
 
         let contents = std::fs::read_to_string(&path)?;
-        let config: Config = toml::from_str(&contents)?;
+        let mut config: Config = toml::from_str(&contents)?;
+
+        // Clamp volume to valid range (0-100)
+        config.player.volume = config.player.volume.min(100);
 
         Ok(config)
     }
@@ -159,7 +162,15 @@ impl Config {
 
     /// Check if the configuration is valid for connecting.
     pub fn is_valid(&self) -> bool {
-        !self.server.url.is_empty()
-            && (!self.server.username.is_empty() || self.server.api_key.is_some())
+        // URL must be non-empty and start with http:// or https://
+        let valid_url = !self.server.url.is_empty()
+            && (self.server.url.starts_with("http://") || self.server.url.starts_with("https://"));
+
+        // Must have either a valid API key or username+password
+        let valid_auth = self.server.api_key.as_ref().is_some_and(|k| !k.is_empty())
+            || (!self.server.username.is_empty()
+                && self.server.password.as_ref().is_some_and(|p| !p.is_empty()));
+
+        valid_url && valid_auth
     }
 }

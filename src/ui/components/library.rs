@@ -382,23 +382,47 @@ impl LibraryState {
     }
 
     /// Move to next favorites section. Returns true if moved, false if at rightmost section.
+    /// Skips empty sections.
     pub fn next_favorites_section(&mut self) -> bool {
-        if self.favorites_section < 2 {
-            self.favorites_section += 1;
-            true
-        } else {
-            false
+        let mut next = self.favorites_section + 1;
+        while next <= 2 {
+            let len = match next {
+                0 => self.favorites_artists.len(),
+                1 => self.favorites_albums.len(),
+                _ => self.favorites_songs.len(),
+            };
+            if len > 0 {
+                self.favorites_section = next;
+                return true;
+            }
+            next += 1;
         }
+        false
     }
 
     /// Move to previous favorites section. Returns true if moved, false if at leftmost section.
+    /// Skips empty sections.
     pub fn prev_favorites_section(&mut self) -> bool {
-        if self.favorites_section > 0 {
-            self.favorites_section -= 1;
-            true
-        } else {
-            false
+        if self.favorites_section == 0 {
+            return false;
         }
+        let mut prev = self.favorites_section - 1;
+        loop {
+            let len = match prev {
+                0 => self.favorites_artists.len(),
+                1 => self.favorites_albums.len(),
+                _ => self.favorites_songs.len(),
+            };
+            if len > 0 {
+                self.favorites_section = prev;
+                return true;
+            }
+            if prev == 0 {
+                break;
+            }
+            prev -= 1;
+        }
+        false
     }
 
     /// Enter artist detail view.

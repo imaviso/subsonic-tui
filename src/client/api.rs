@@ -100,6 +100,22 @@ impl SubsonicClient {
         let url = self.build_url(endpoint, params);
 
         let response = self.client.get(&url).send().await?;
+
+        // Check HTTP status before parsing - handles proxy errors, server issues, etc.
+        let status = response.status();
+        if !status.is_success() {
+            let body = response.text().await.unwrap_or_default();
+            return Err(ApiClientError::InvalidResponse(format!(
+                "HTTP {}: {}",
+                status.as_u16(),
+                if body.len() > 200 {
+                    &body[..200]
+                } else {
+                    &body
+                }
+            )));
+        }
+
         let text = response.text().await?;
 
         // Parse the response

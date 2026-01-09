@@ -226,10 +226,12 @@ impl SearchState {
     pub fn next_section(&mut self) {
         self.focus = (self.focus + 1) % 3;
 
-        // Select first item in new section
+        // Select first item in new section, or clear selection if empty
         let len = self.active_list_len();
         if len > 0 {
             self.active_list_state().select(Some(0));
+        } else {
+            self.active_list_state().select(None);
         }
     }
 
@@ -237,10 +239,12 @@ impl SearchState {
     pub fn prev_section(&mut self) {
         self.focus = if self.focus == 0 { 2 } else { self.focus - 1 };
 
-        // Select first item in new section
+        // Select first item in new section, or clear selection if empty
         let len = self.active_list_len();
         if len > 0 {
             self.active_list_state().select(Some(0));
+        } else {
+            self.active_list_state().select(None);
         }
     }
 
