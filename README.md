@@ -224,4 +224,5 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 - [ratatui](https://github.com/ratatui-org/ratatui) - Terminal UI framework
 - [rodio](https://github.com/RustAudio/rodio) - Audio playback
+- [symphonia](https://github.com/pdeljanov/symphonia) - Audio decoding and seeking
 - [OpenSubsonic](https://opensubsonic.netlify.app/) - API specification
