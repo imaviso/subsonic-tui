@@ -351,7 +351,7 @@ impl App {
             }
 
             Action::VolumeUp => {
-                let new_vol = (self.now_playing.volume as i32 + 5).min(100) as u8;
+                let new_vol = (self.now_playing.volume as i32 + 10).min(100) as u8;
                 self.now_playing.volume = new_vol;
                 if let Some(player) = &self.player {
                     player.set_volume(new_vol as f32 / 100.0)?;
@@ -359,7 +359,7 @@ impl App {
             }
 
             Action::VolumeDown => {
-                let new_vol = (self.now_playing.volume as i32 - 5).max(0) as u8;
+                let new_vol = (self.now_playing.volume as i32 - 10).max(0) as u8;
                 self.now_playing.volume = new_vol;
                 if let Some(player) = &self.player {
                     player.set_volume(new_vol as f32 / 100.0)?;
