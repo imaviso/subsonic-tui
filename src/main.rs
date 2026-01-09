@@ -398,13 +398,21 @@ fn sync_mpris_state(app: &App, state: &mut MprisState, handle: &mpris::MprisHand
         if let Some(song) = &now_playing.current_song {
             // Update metadata
             let duration = song.duration.map(|d| d.max(0) as u32);
+
+            // Generate cover art URL if available
+            let cover_art_url = song.cover_art.as_ref().and_then(|cover_id| {
+                app.client
+                    .as_ref()
+                    .map(|client| client.cover_art_url(cover_id, Some(300)))
+            });
+
             let _ = handle.set_metadata(
                 &song.id,
                 &song.title,
                 song.artist.as_deref(),
                 song.album.as_deref(),
                 duration,
-                None, // TODO: cover art URL
+                cover_art_url.as_deref(),
             );
         }
     }
