@@ -33,8 +33,28 @@ cargo build --release
 ### With Nix
 
 ```bash
+# Run directly
+nix run github:yourusername/subsonic-tui
+
+# Or install to profile
+nix profile install github:yourusername/subsonic-tui
+
+# Or build locally
+nix build
+./result/bin/subsonic-tui
+```
+
+### Development
+
+```bash
+# Enter development shell
 nix develop
-cargo build --release
+
+# Build and run
+cargo run
+
+# Run checks
+nix flake check
 ```
 
 ## Configuration
@@ -140,28 +160,27 @@ Browse your starred/favorite items. The view is split into three columns:
 
 Use `h`/`l` or arrow keys to switch between columns.
 
-## Screenshots
-
-```
-┌subsonic-tui──────────────────────────────────────────────────────────────────┐
-│ Artists │ Albums │ Songs │ Playlists │ Genres │ Favorites                    │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ Artists                              │ Queue                                 │
-│ > Artist Name (5 albums)             │ > 01. Current Song - Artist    3:45   │
-│   Another Artist (3 albums)          │   02. Next Song - Artist       4:12   │
-│   More Artists (12 albums)           │   03. Another Song - Artist    3:33   │
-│                                      │                                       │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ ▶ Song Title - Artist Name                               advancement bar     │
-│ Album Name                                           1:23 / 3:45    Vol: 80% │
-└──────────────────────────────────────────────────────────────────────────────┘
-```
-
 ## Requirements
 
 - A Subsonic-compatible server (Navidrome, Subsonic, gonic, Airsonic, etc.)
 - Audio output device
-- Terminal with Unicode support
+- Terminal with image support (Kitty, Ghostty, iTerm2, WezTerm, foot, etc.) for album art display
+- [Nerd Font](https://www.nerdfonts.com/) for icons
+
+### Linux Dependencies
+
+On Linux, ALSA is required for audio playback. The Nix build handles this automatically. For other systems:
+
+```bash
+# Debian/Ubuntu
+sudo apt install libasound2-dev
+
+# Fedora
+sudo dnf install alsa-lib-devel
+
+# Arch
+sudo pacman -S alsa-lib
+```
 
 ### OpenSubsonic Extensions
 
@@ -171,6 +190,27 @@ For the best experience, use a server that supports [OpenSubsonic](https://opens
 ## Logging
 
 Logs are written to `~/.cache/subsonic-tui/subsonic-tui.log`.
+
+## Building
+
+### With Cargo
+
+```bash
+cargo build --release
+```
+
+### With Nix
+
+```bash
+# Build wrapped binary (includes runtime dependencies)
+nix build
+
+# Build unwrapped binary
+nix build .#unwrapped
+
+# Run checks (build + clippy)
+nix flake check
+```
 
 ## License
 
