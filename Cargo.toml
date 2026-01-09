@@ -1,11 +1,11 @@
 [package]
 name = "subsonic-tui"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
-authors = ["Your Name <your.email@example.com>"]
+authors = ["imaviso <mail@imaviso.com>"]
 description = "A TUI music player client for OpenSubsonic-compatible servers"
 license = "MIT"
-repository = "https://github.com/yourusername/subsonic-tui"
+repository = "https://github.com/imaviso/subsonic-tui"
 keywords = ["tui", "music", "subsonic", "navidrome", "player"]
 categories = ["command-line-utilities", "multimedia::audio"]
 
