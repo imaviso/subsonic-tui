@@ -216,6 +216,11 @@ impl QueueState {
         self.list_state.selected()
     }
 
+    /// Get the selected song.
+    pub fn selected_song(&self) -> Option<&Song> {
+        self.list_state.selected().and_then(|i| self.songs.get(i))
+    }
+
     /// Jump to the top of the queue.
     pub fn jump_to_top(&mut self) {
         if !self.songs.is_empty() {

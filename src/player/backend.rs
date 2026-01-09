@@ -511,14 +511,16 @@ fn run_player_thread(
             if let Some(last_time) = last_tick_time {
                 let elapsed_ms = last_time.elapsed().as_millis() as u64;
                 let current = state.position_ms.load(Ordering::SeqCst);
-                state
-                    .position_ms
-                    .store(current + elapsed_ms, Ordering::SeqCst);
+                let duration_ms = state.duration_ms.load(Ordering::SeqCst);
+
+                // Cap position at duration to prevent overshoot
+                let new_position = (current + elapsed_ms).min(duration_ms);
+                state.position_ms.store(new_position, Ordering::SeqCst);
                 last_tick_time = Some(std::time::Instant::now());
 
                 if let Some(dur) = current_duration {
                     let _ = event_tx.send(PlayerEvent::Progress {
-                        position: Duration::from_millis(current + elapsed_ms),
+                        position: Duration::from_millis(new_position),
                         duration: dur,
                     });
                 }

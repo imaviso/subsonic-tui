@@ -241,7 +241,9 @@ pub fn render_now_playing(frame: &mut Frame, area: Rect, state: &mut NowPlayingS
 
     // Song info
     if let Some(song) = &state.current_song {
+        let star_indicator = if song.starred.is_some() { "󰓎 " } else { "" };
         let info = Line::from(vec![
+            Span::styled(star_indicator, Style::default().fg(Color::Yellow)),
             Span::styled(
                 &song.title,
                 Style::default()

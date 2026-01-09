@@ -1402,14 +1402,51 @@ impl App {
         Ok(())
     }
 
-    /// Toggle star on the current song.
+    /// Toggle star on the current song (from now playing, library, queue, or search).
     async fn toggle_star(&mut self) -> Result<()> {
-        // Clone the song ID to avoid borrow issues
-        let song_info = self
-            .now_playing
-            .current_song
-            .as_ref()
-            .map(|s| (s.id.clone(), s.starred.is_some()));
+        // Determine which song to star based on context
+        let song_info: Option<(String, bool)> = if self.search.active {
+            // Search view - get selected song
+            self.search
+                .selected_song()
+                .map(|s| (s.id.clone(), s.starred.is_some()))
+        } else if self.focus == 1 {
+            // Queue view - get selected song
+            self.queue
+                .selected_song()
+                .map(|s| (s.id.clone(), s.starred.is_some()))
+        } else if self.focus == 0 {
+            // Library view - check if we're viewing songs
+            match self.library.tab {
+                Tab::Songs => self
+                    .library
+                    .selected_song_item()
+                    .map(|s| (s.id.clone(), s.starred.is_some())),
+                Tab::Favorites if self.library.favorites_section == 2 => self
+                    .library
+                    .selected_favorite_song()
+                    .map(|s| (s.id.clone(), s.starred.is_some())),
+                _ if self.library.view_depth > 0 => {
+                    // Album/playlist song view
+                    self.library
+                        .album_songs_state
+                        .selected()
+                        .and_then(|i| self.library.album_songs.get(i))
+                        .map(|s| (s.id.clone(), s.starred.is_some()))
+                }
+                _ => None,
+            }
+        } else {
+            None
+        };
+
+        // Fall back to now playing if no song selected in current context
+        let song_info = song_info.or_else(|| {
+            self.now_playing
+                .current_song
+                .as_ref()
+                .map(|s| (s.id.clone(), s.starred.is_some()))
+        });
 
         if let Some((song_id, is_starred)) = song_info {
             if let Some(client) = &self.client {
@@ -1421,15 +1458,49 @@ impl App {
 
                 match result {
                     Ok(()) => {
-                        // Update local state to reflect the change
+                        let new_starred = if is_starred {
+                            None
+                        } else {
+                            Some(chrono::Utc::now().to_rfc3339())
+                        };
+
+                        // Update local state in all places where this song might appear
                         if let Some(song) = self.now_playing.current_song.as_mut() {
-                            if is_starred {
-                                song.starred = None;
-                            } else {
-                                // Set starred to current timestamp
-                                song.starred = Some(chrono::Utc::now().to_rfc3339());
+                            if song.id == song_id {
+                                song.starred = new_starred.clone();
                             }
                         }
+
+                        // Update in library songs
+                        for song in &mut self.library.songs {
+                            if song.id == song_id {
+                                song.starred = new_starred.clone();
+                            }
+                        }
+
+                        // Update in album_songs
+                        for song in &mut self.library.album_songs {
+                            if song.id == song_id {
+                                song.starred = new_starred.clone();
+                            }
+                        }
+
+                        // Update in queue
+                        for song in &mut self.queue.songs {
+                            if song.id == song_id {
+                                song.starred = new_starred.clone();
+                            }
+                        }
+
+                        // Update in search results
+                        for song in &mut self.search.songs {
+                            if song.id == song_id {
+                                song.starred = new_starred.clone();
+                            }
+                        }
+
+                        // Refresh favorites list to reflect the change
+                        self.action_tx.send(Action::LoadFavorites)?;
                     }
                     Err(e) => {
                         let action = if is_starred { "unstar" } else { "star" };
