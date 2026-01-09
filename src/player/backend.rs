@@ -421,7 +421,7 @@ fn run_player_thread(
                 }
                 PlayerCommand::SetVolume(vol) => {
                     current_volume = vol;
-                    sink.lock().unwrap().set_volume(vol);
+                    sink.lock().unwrap().set_volume(linear_to_log_volume(vol));
                 }
                 PlayerCommand::Seek(position) => {
                     // Since our SymphoniaSource supports seeking, we recreate it with
@@ -490,6 +490,22 @@ fn fetch_audio_data(url: &str) -> Result<Vec<u8>> {
     Ok(bytes.to_vec())
 }
 
+/// Convert linear volume (0.0-1.0) to logarithmic/perceptual volume.
+/// Human hearing perceives loudness logarithmically, so we need to convert
+/// the linear slider position to an exponential amplitude scale.
+/// Uses a curve that feels natural: amplitude = volume^2.5
+fn linear_to_log_volume(linear: f32) -> f32 {
+    if linear <= 0.0 {
+        0.0
+    } else if linear >= 1.0 {
+        1.0
+    } else {
+        // Using power of 2.5 gives a good perceptual curve
+        // At 50% slider, amplitude is ~17.7% which sounds roughly half as loud
+        linear.powf(2.5)
+    }
+}
+
 /// Play audio data with optional seek position.
 /// Uses SymphoniaSource directly to ensure proper seeking support.
 fn play_audio_data(
@@ -508,7 +524,7 @@ fn play_audio_data(
 
     let s = sink.lock().unwrap();
     s.append(source);
-    s.set_volume(volume);
+    s.set_volume(linear_to_log_volume(volume));
     s.play();
 
     Ok(())
