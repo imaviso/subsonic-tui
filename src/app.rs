@@ -401,6 +401,26 @@ impl App {
                 self.now_playing.repeat = self.now_playing.repeat.next();
             }
 
+            Action::SetRepeat(mode) => {
+                self.now_playing.repeat = mode;
+            }
+
+            Action::SetVolume(vol) => {
+                self.now_playing.volume = vol.min(100);
+                if let Some(player) = &self.player {
+                    player.set_volume(vol as f32 / 100.0)?;
+                }
+            }
+
+            Action::SeekTo(pos_secs) => {
+                let duration = self.now_playing.duration;
+                let new_pos = pos_secs.min(duration);
+                self.now_playing.position = new_pos;
+                if let Some(player) = &self.player {
+                    player.seek(Duration::from_secs(new_pos as u64))?;
+                }
+            }
+
             // Queue management
             Action::AddToQueue(song) => {
                 self.queue.add(song);

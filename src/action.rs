@@ -42,10 +42,13 @@ pub enum Action {
     SeekBackward,
     SeekForwardLarge,
     SeekBackwardLarge,
+    SeekTo(u32), // Seek to absolute position in seconds
     VolumeUp,
     VolumeDown,
+    SetVolume(u8), // Set volume to specific value (0-100)
     ToggleShuffle,
     CycleRepeat,
+    SetRepeat(RepeatMode), // Set specific repeat mode
 
     // Queue management
     AddToQueue(Song),

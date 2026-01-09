@@ -11,13 +11,25 @@ mod action;
 mod app;
 mod client;
 mod config;
+mod mpris;
 mod player;
 mod tui;
 mod ui;
 
-use action::{Action, Tab};
+use action::{Action, PlayerState, RepeatMode, Tab};
 use app::App;
 use config::Config;
+
+/// State tracked for MPRIS synchronization.
+#[derive(Default, Clone)]
+struct MprisState {
+    track_id: Option<String>,
+    player_state: PlayerState,
+    position: u32,
+    volume: u8,
+    shuffle: bool,
+    repeat: RepeatMode,
+}
 
 /// Command-line arguments.
 #[derive(Parser, Debug)]
@@ -94,11 +106,26 @@ async fn main() -> Result<()> {
     // Create application
     let mut app = App::new(config, action_tx.clone());
 
+    // Initialize MPRIS server (runs on a dedicated thread)
+    let mut mpris_handle = match mpris::MprisHandle::new() {
+        Ok(handle) => {
+            tracing::info!("MPRIS server initialized");
+            Some(handle)
+        }
+        Err(e) => {
+            tracing::warn!("Failed to initialize MPRIS server: {}", e);
+            None
+        }
+    };
+
     // Initialize terminal
     let mut terminal = tui::init()?;
 
     // Initialize application
     app.init().await?;
+
+    // Track state for MPRIS synchronization
+    let mut mpris_state = MprisState::default();
 
     // Main event loop
     let tick_rate = Duration::from_millis(100);
@@ -106,6 +133,54 @@ async fn main() -> Result<()> {
     loop {
         // Render UI
         terminal.draw(|frame| ui::render(frame, &mut app))?;
+
+        // Handle MPRIS events
+        if let Some(ref mut handle) = mpris_handle {
+            while let Some(mpris_event) = handle.try_recv() {
+                let action = match mpris_event {
+                    mpris::MprisEvent::PlayPause => Action::PlayPause,
+                    mpris::MprisEvent::Play => Action::PlayPause, // Will resume if paused
+                    mpris::MprisEvent::Pause => Action::PlayPause, // Will pause if playing
+                    mpris::MprisEvent::Stop => Action::Stop,
+                    mpris::MprisEvent::Next => Action::NextTrack,
+                    mpris::MprisEvent::Previous => Action::PreviousTrack,
+                    mpris::MprisEvent::Seek(offset_us) => {
+                        // Convert microseconds to seconds
+                        let offset_secs = (offset_us / 1_000_000) as i32;
+                        if offset_secs >= 0 {
+                            Action::SeekForward
+                        } else {
+                            Action::SeekBackward
+                        }
+                    }
+                    mpris::MprisEvent::SetPosition(pos_us) => {
+                        // Convert to seconds and create a seek action
+                        let pos_secs = (pos_us / 1_000_000) as u32;
+                        Action::SeekTo(pos_secs)
+                    }
+                    mpris::MprisEvent::SetVolume(vol) => {
+                        // Convert 0.0-1.0 to 0-100
+                        let vol_percent = (vol * 100.0) as u8;
+                        Action::SetVolume(vol_percent)
+                    }
+                    mpris::MprisEvent::SetLoopStatus(status) => {
+                        Action::SetRepeat(mpris::loop_status_to_repeat(status))
+                    }
+                    mpris::MprisEvent::SetShuffle(shuffle) => {
+                        if shuffle != app.now_playing.shuffle {
+                            Action::ToggleShuffle
+                        } else {
+                            Action::None
+                        }
+                    }
+                    mpris::MprisEvent::Raise => Action::None,
+                    mpris::MprisEvent::Quit => Action::Quit,
+                };
+                if action != Action::None {
+                    action_tx.send(action)?;
+                }
+            }
+        }
 
         // Handle events with timeout
         if event::poll(tick_rate)? {
@@ -137,6 +212,11 @@ async fn main() -> Result<()> {
         // Process all pending actions
         while let Ok(action) = action_rx.try_recv() {
             app.handle_action(action).await?;
+        }
+
+        // Sync state to MPRIS
+        if let Some(ref handle) = mpris_handle {
+            sync_mpris_state(&app, &mut mpris_state, handle);
         }
 
         // Check if we should quit
@@ -305,3 +385,70 @@ fn handle_mouse_event(mouse: crossterm::event::MouseEvent) -> Action {
 }
 
 use tracing_subscriber::prelude::*;
+
+/// Synchronize application state to MPRIS.
+fn sync_mpris_state(app: &App, state: &mut MprisState, handle: &mpris::MprisHandle) {
+    let now_playing = &app.now_playing;
+
+    // Check if track changed
+    let current_track_id = now_playing.current_song.as_ref().map(|s| s.id.clone());
+    if current_track_id != state.track_id {
+        state.track_id = current_track_id.clone();
+
+        if let Some(song) = &now_playing.current_song {
+            // Update metadata
+            let duration = song.duration.map(|d| d.max(0) as u32);
+            let _ = handle.set_metadata(
+                &song.id,
+                &song.title,
+                song.artist.as_deref(),
+                song.album.as_deref(),
+                duration,
+                None, // TODO: cover art URL
+            );
+        }
+    }
+
+    // Check if playback state changed
+    if now_playing.state != state.player_state {
+        state.player_state = now_playing.state;
+
+        let status = match now_playing.state {
+            PlayerState::Playing => mpris_server::PlaybackStatus::Playing,
+            PlayerState::Paused => mpris_server::PlaybackStatus::Paused,
+            PlayerState::Stopped => mpris_server::PlaybackStatus::Stopped,
+            PlayerState::Buffering => mpris_server::PlaybackStatus::Playing, // Treat buffering as playing
+        };
+        let _ = handle.set_playback_status(status);
+    }
+
+    // Update position periodically (every second is fine)
+    if now_playing.position != state.position {
+        state.position = now_playing.position;
+        let _ = handle.set_position(Duration::from_secs(now_playing.position as u64));
+    }
+
+    // Check if volume changed
+    if now_playing.volume != state.volume {
+        state.volume = now_playing.volume;
+        let _ = handle.set_volume(now_playing.volume as f64 / 100.0);
+    }
+
+    // Check if shuffle changed
+    if now_playing.shuffle != state.shuffle {
+        state.shuffle = now_playing.shuffle;
+        let _ = handle.set_shuffle(now_playing.shuffle);
+    }
+
+    // Check if repeat changed
+    if now_playing.repeat != state.repeat {
+        state.repeat = now_playing.repeat;
+        let _ = handle.set_loop_status(mpris::repeat_to_loop_status(now_playing.repeat));
+    }
+
+    // Update can_go_next and can_go_previous based on queue
+    let can_go_next = !app.queue.songs.is_empty();
+    let can_go_previous = !app.queue.songs.is_empty();
+    let _ = handle.set_can_go_next(can_go_next);
+    let _ = handle.set_can_go_previous(can_go_previous);
+}
