@@ -1,0 +1,70 @@
+[package]
+name = "subsonic-tui"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <your.email@example.com>"]
+description = "A TUI music player client for OpenSubsonic-compatible servers"
+license = "MIT"
+repository = "https://github.com/yourusername/subsonic-tui"
+keywords = ["tui", "music", "subsonic", "navidrome", "player"]
+categories = ["command-line-utilities", "multimedia::audio"]
+
+[dependencies]
+# TUI Framework
+ratatui = { version = "0.29", features = ["all-widgets"] }
+crossterm = { version = "0.28", features = ["event-stream"] }
+
+# Async Runtime
+tokio = { version = "1", features = ["full", "sync", "macros", "rt-multi-thread"] }
+tokio-util = "0.7"
+futures = "0.3"
+
+# HTTP Client
+reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls", "blocking"], default-features = false }
+urlencoding = "2"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Audio Playback
+rodio = { version = "0.19", features = ["symphonia-all"] }
+
+# Authentication
+md-5 = "0.10"
+rand = "0.8"
+
+# Configuration
+dirs = "5"
+toml = "0.8"
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Error Handling
+color-eyre = "0.6"
+thiserror = "2"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Image support for album art
+ratatui-image = { version = "4", features = ["crossterm"] }
+image = "0.25"
+
+# Utilities
+unicode-width = "0.2"
+chrono = { version = "0.4", features = ["serde"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.dev]
+opt-level = 0
+
+[profile.dev.package."*"]
+opt-level = 3
