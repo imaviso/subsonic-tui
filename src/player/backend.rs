@@ -110,7 +110,10 @@ impl SymphoniaSource {
             format: probed.format,
             decoder,
             track_id,
-            buffer: SampleBuffer::new(0, SignalSpec::new(44100, symphonia::core::audio::Channels::FRONT_LEFT)),
+            buffer: SampleBuffer::new(
+                0,
+                SignalSpec::new(44100, symphonia::core::audio::Channels::FRONT_LEFT),
+            ),
             current_frame_offset: 0,
             spec: SignalSpec::new(44100, symphonia::core::audio::Channels::FRONT_LEFT),
             total_duration,
@@ -126,7 +129,13 @@ impl SymphoniaSource {
         let time = Time::from(position.as_secs_f64());
 
         self.format
-            .seek(SeekMode::Accurate, SeekTo::Time { time, track_id: None })
+            .seek(
+                SeekMode::Accurate,
+                SeekTo::Time {
+                    time,
+                    track_id: None,
+                },
+            )
             .map_err(|e| color_eyre::eyre::eyre!("Seek failed: {}", e))?;
 
         // Decode a frame after seeking to update buffers
@@ -153,7 +162,8 @@ impl SymphoniaSource {
                 Ok(decoded) => {
                     // Copy data from decoded buffer immediately to avoid borrow issues
                     let spec = *decoded.spec();
-                    let duration = symphonia::core::units::Duration::from(decoded.capacity() as u64);
+                    let duration =
+                        symphonia::core::units::Duration::from(decoded.capacity() as u64);
                     let mut buffer = SampleBuffer::new(duration, spec);
                     buffer.copy_interleaved_ref(decoded);
 
@@ -189,7 +199,12 @@ impl Iterator for SymphoniaSource {
 
 impl Source for SymphoniaSource {
     fn current_frame_len(&self) -> Option<usize> {
-        Some(self.buffer.samples().len().saturating_sub(self.current_frame_offset))
+        Some(
+            self.buffer
+                .samples()
+                .len()
+                .saturating_sub(self.current_frame_offset),
+        )
     }
 
     fn channels(&self) -> u16 {
@@ -201,7 +216,8 @@ impl Source for SymphoniaSource {
     }
 
     fn total_duration(&self) -> Option<Duration> {
-        self.total_duration.map(|t| Duration::from_secs_f64(t.seconds as f64 + t.frac))
+        self.total_duration
+            .map(|t| Duration::from_secs_f64(t.seconds as f64 + t.frac))
     }
 }
 
@@ -438,18 +454,17 @@ fn run_player_thread(
                     if let Some(ref audio_data) = current_audio_data {
                         // Remember if we were playing before seek
                         let was_playing = state.is_playing.load(Ordering::SeqCst);
-                        
+
                         // Set seeking flag to prevent false TrackEnded events
                         is_seeking = true;
-                        
+
                         {
                             let s = sink.lock().unwrap();
                             s.stop();
                         }
                         *sink.lock().unwrap() = Sink::try_new(&stream_handle)?;
 
-                        if let Err(e) =
-                            play_audio_data(audio_data, &sink, current_volume, position)
+                        if let Err(e) = play_audio_data(audio_data, &sink, current_volume, position)
                         {
                             let _ =
                                 event_tx.send(PlayerEvent::Error(format!("Seek failed: {}", e)));
@@ -457,7 +472,7 @@ fn run_player_thread(
                             state
                                 .position_ms
                                 .store(position.as_millis() as u64, Ordering::SeqCst);
-                            
+
                             // Restore previous play/pause state
                             if was_playing {
                                 state.is_playing.store(true, Ordering::SeqCst);
@@ -468,7 +483,8 @@ fn run_player_thread(
                                 sink.lock().unwrap().pause();
                                 state.is_playing.store(false, Ordering::SeqCst);
                                 last_tick_time = None;
-                                let _ = event_tx.send(PlayerEvent::StateChanged(PlayerState::Paused));
+                                let _ =
+                                    event_tx.send(PlayerEvent::StateChanged(PlayerState::Paused));
                             }
                         }
                     }
@@ -486,7 +502,7 @@ fn run_player_thread(
             state.is_playing.store(false, Ordering::SeqCst);
             let _ = event_tx.send(PlayerEvent::TrackEnded);
         }
-        
+
         // Reset seeking flag after track-end check
         is_seeking = false;
 
@@ -495,7 +511,9 @@ fn run_player_thread(
             if let Some(last_time) = last_tick_time {
                 let elapsed_ms = last_time.elapsed().as_millis() as u64;
                 let current = state.position_ms.load(Ordering::SeqCst);
-                state.position_ms.store(current + elapsed_ms, Ordering::SeqCst);
+                state
+                    .position_ms
+                    .store(current + elapsed_ms, Ordering::SeqCst);
                 last_tick_time = Some(std::time::Instant::now());
 
                 if let Some(dur) = current_duration {

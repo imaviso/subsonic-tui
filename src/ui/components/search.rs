@@ -94,16 +94,28 @@ impl SearchState {
         self.songs = songs;
         self.searching = false;
 
-        // Select first item in first non-empty section
+        // Select first item in first non-empty section, or clear all if empty
         if !self.artists.is_empty() {
             self.artists_state.select(Some(0));
+            self.albums_state.select(None);
+            self.songs_state.select(None);
             self.focus = 0;
         } else if !self.albums.is_empty() {
+            self.artists_state.select(None);
             self.albums_state.select(Some(0));
+            self.songs_state.select(None);
             self.focus = 1;
         } else if !self.songs.is_empty() {
+            self.artists_state.select(None);
+            self.albums_state.select(None);
             self.songs_state.select(Some(0));
             self.focus = 2;
+        } else {
+            // All results are empty - clear all selection states
+            self.artists_state.select(None);
+            self.albums_state.select(None);
+            self.songs_state.select(None);
+            self.focus = 0;
         }
     }
 

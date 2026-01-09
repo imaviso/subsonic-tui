@@ -40,6 +40,7 @@ pub struct LibraryState {
     /// Currently selected genre (for drill-down)
     pub selected_genre: Option<Genre>,
     pub genre_albums: Vec<Album>,
+    pub genre_albums_state: ListState,
 
     /// Favorites (starred items)
     pub favorites_artists: Vec<Artist>,
@@ -54,10 +55,12 @@ pub struct LibraryState {
     /// Currently selected artist (for drill-down)
     pub selected_artist: Option<Artist>,
     pub artist_albums: Vec<Album>,
+    pub artist_albums_state: ListState,
 
     /// Currently selected album (for drill-down)
     pub selected_album: Option<Album>,
     pub album_songs: Vec<Song>,
+    pub album_songs_state: ListState,
 
     /// View depth (0 = list, 1 = artist/album detail)
     pub view_depth: u8,
@@ -78,16 +81,16 @@ impl LibraryState {
                 if self.view_depth == 0 {
                     &mut self.artists_state
                 } else if self.view_depth == 1 {
-                    &mut self.albums_state
+                    &mut self.artist_albums_state
                 } else {
-                    &mut self.songs_state
+                    &mut self.album_songs_state
                 }
             }
             Tab::Albums => {
                 if self.view_depth == 0 {
                     &mut self.albums_state
                 } else {
-                    &mut self.songs_state
+                    &mut self.album_songs_state
                 }
             }
             Tab::Songs => &mut self.songs_state,
@@ -95,16 +98,16 @@ impl LibraryState {
                 if self.view_depth == 0 {
                     &mut self.playlists_state
                 } else {
-                    &mut self.songs_state
+                    &mut self.album_songs_state
                 }
             }
             Tab::Genres => {
                 if self.view_depth == 0 {
                     &mut self.genres_state
                 } else if self.view_depth == 1 {
-                    &mut self.albums_state
+                    &mut self.genre_albums_state
                 } else {
-                    &mut self.songs_state
+                    &mut self.album_songs_state
                 }
             }
             Tab::Favorites => {
@@ -117,10 +120,10 @@ impl LibraryState {
                     }
                 } else if self.view_depth == 1 {
                     // Drill-down into artist -> albums
-                    &mut self.albums_state
+                    &mut self.artist_albums_state
                 } else {
                     // Drill-down into album -> songs
-                    &mut self.songs_state
+                    &mut self.album_songs_state
                 }
             }
         }
@@ -234,7 +237,7 @@ impl LibraryState {
                 .selected()
                 .and_then(|i| self.albums.get(i))
         } else {
-            self.albums_state
+            self.artist_albums_state
                 .selected()
                 .and_then(|i| self.artist_albums.get(i))
         }
@@ -245,7 +248,7 @@ impl LibraryState {
         if self.view_depth == 0 {
             self.songs_state.selected().and_then(|i| self.songs.get(i))
         } else {
-            self.songs_state
+            self.album_songs_state
                 .selected()
                 .and_then(|i| self.album_songs.get(i))
         }
@@ -261,7 +264,9 @@ impl LibraryState {
     /// Set artists and reset selection.
     pub fn set_artists(&mut self, artists: Vec<Artist>) {
         self.artists = artists;
-        if !self.artists.is_empty() {
+        if self.artists.is_empty() {
+            self.artists_state.select(None);
+        } else {
             self.artists_state.select(Some(0));
         }
     }
@@ -269,7 +274,9 @@ impl LibraryState {
     /// Set albums and reset selection.
     pub fn set_albums(&mut self, albums: Vec<Album>) {
         self.albums = albums;
-        if !self.albums.is_empty() {
+        if self.albums.is_empty() {
+            self.albums_state.select(None);
+        } else {
             self.albums_state.select(Some(0));
         }
     }
@@ -277,7 +284,9 @@ impl LibraryState {
     /// Set songs and reset selection.
     pub fn set_songs(&mut self, songs: Vec<Song>) {
         self.songs = songs;
-        if !self.songs.is_empty() {
+        if self.songs.is_empty() {
+            self.songs_state.select(None);
+        } else {
             self.songs_state.select(Some(0));
         }
     }
@@ -285,7 +294,9 @@ impl LibraryState {
     /// Set playlists and reset selection.
     pub fn set_playlists(&mut self, playlists: Vec<Playlist>) {
         self.playlists = playlists;
-        if !self.playlists.is_empty() {
+        if self.playlists.is_empty() {
+            self.playlists_state.select(None);
+        } else {
             self.playlists_state.select(Some(0));
         }
     }
@@ -293,7 +304,9 @@ impl LibraryState {
     /// Set genres and reset selection.
     pub fn set_genres(&mut self, genres: Vec<Genre>) {
         self.genres = genres;
-        if !self.genres.is_empty() {
+        if self.genres.is_empty() {
+            self.genres_state.select(None);
+        } else {
             self.genres_state.select(Some(0));
         }
     }
@@ -307,7 +320,7 @@ impl LibraryState {
 
     /// Get selected genre album (when in genre detail view).
     pub fn selected_genre_album_item(&self) -> Option<&Album> {
-        self.albums_state
+        self.genre_albums_state
             .selected()
             .and_then(|i| self.genre_albums.get(i))
     }
@@ -317,8 +330,10 @@ impl LibraryState {
         self.selected_genre = Some(genre);
         self.genre_albums = albums;
         self.view_depth = 1;
-        if !self.genre_albums.is_empty() {
-            self.albums_state.select(Some(0));
+        if self.genre_albums.is_empty() {
+            self.genre_albums_state.select(None);
+        } else {
+            self.genre_albums_state.select(Some(0));
         }
     }
 
@@ -327,14 +342,20 @@ impl LibraryState {
         self.favorites_artists = artists;
         self.favorites_albums = albums;
         self.favorites_songs = songs;
-        // Reset selections
-        if !self.favorites_artists.is_empty() {
+        // Reset selections - clear if empty, select first if not
+        if self.favorites_artists.is_empty() {
+            self.favorites_artists_state.select(None);
+        } else {
             self.favorites_artists_state.select(Some(0));
         }
-        if !self.favorites_albums.is_empty() {
+        if self.favorites_albums.is_empty() {
+            self.favorites_albums_state.select(None);
+        } else {
             self.favorites_albums_state.select(Some(0));
         }
-        if !self.favorites_songs.is_empty() {
+        if self.favorites_songs.is_empty() {
+            self.favorites_songs_state.select(None);
+        } else {
             self.favorites_songs_state.select(Some(0));
         }
     }
@@ -385,8 +406,10 @@ impl LibraryState {
         self.selected_artist = Some(artist);
         self.artist_albums = albums;
         self.view_depth = 1;
-        if !self.artist_albums.is_empty() {
-            self.albums_state.select(Some(0));
+        if self.artist_albums.is_empty() {
+            self.artist_albums_state.select(None);
+        } else {
+            self.artist_albums_state.select(Some(0));
         }
     }
 
@@ -395,8 +418,10 @@ impl LibraryState {
         self.selected_album = Some(album);
         self.album_songs = songs;
         self.view_depth = if self.tab == Tab::Albums { 1 } else { 2 };
-        if !self.album_songs.is_empty() {
-            self.songs_state.select(Some(0));
+        if self.album_songs.is_empty() {
+            self.album_songs_state.select(None);
+        } else {
+            self.album_songs_state.select(Some(0));
         }
     }
 
@@ -613,14 +638,14 @@ fn render_artists_view(frame: &mut Frame, area: Rect, state: &mut LibraryState, 
             )
             .highlight_symbol("> ");
 
-        frame.render_stateful_widget(list, area, &mut state.albums_state);
+        frame.render_stateful_widget(list, area, &mut state.artist_albums_state);
     } else {
         // Album songs (depth 2)
         render_song_list(
             frame,
             area,
             &state.album_songs,
-            &mut state.songs_state,
+            &mut state.album_songs_state,
             block,
         );
     }
@@ -659,7 +684,7 @@ fn render_albums_view(frame: &mut Frame, area: Rect, state: &mut LibraryState, b
             frame,
             area,
             &state.album_songs,
-            &mut state.songs_state,
+            &mut state.album_songs_state,
             block,
         );
     }
@@ -704,7 +729,7 @@ fn render_playlists_view(frame: &mut Frame, area: Rect, state: &mut LibraryState
             frame,
             area,
             &state.album_songs,
-            &mut state.songs_state,
+            &mut state.album_songs_state,
             block,
         );
     }
@@ -814,14 +839,14 @@ fn render_genres_view(frame: &mut Frame, area: Rect, state: &mut LibraryState, b
             )
             .highlight_symbol("> ");
 
-        frame.render_stateful_widget(list, area, &mut state.albums_state);
+        frame.render_stateful_widget(list, area, &mut state.genre_albums_state);
     } else {
         // Album songs (depth 2)
         render_song_list(
             frame,
             area,
             &state.album_songs,
-            &mut state.songs_state,
+            &mut state.album_songs_state,
             block,
         );
     }
@@ -971,14 +996,14 @@ fn render_favorites_view(frame: &mut Frame, area: Rect, state: &mut LibraryState
             )
             .highlight_symbol("> ");
 
-        frame.render_stateful_widget(list, area, &mut state.albums_state);
+        frame.render_stateful_widget(list, area, &mut state.artist_albums_state);
     } else {
         // Drill-down into album -> songs (depth 2)
         render_song_list(
             frame,
             area,
             &state.album_songs,
-            &mut state.songs_state,
+            &mut state.album_songs_state,
             block,
         );
     }

@@ -311,7 +311,7 @@ impl App {
                 self.library.tab = tab;
                 self.library.view_depth = 0;
                 self.focus = 0; // Always focus library when switching tabs
-                // Reset favorites section to artists when switching to favorites
+                                // Reset favorites section to artists when switching to favorites
                 if tab == Tab::Favorites {
                     self.library.favorites_section = 0;
                 }
@@ -1404,13 +1404,37 @@ impl App {
 
     /// Toggle star on the current song.
     async fn toggle_star(&mut self) -> Result<()> {
-        if let Some(song) = self.now_playing.current_song.as_ref() {
+        // Clone the song ID to avoid borrow issues
+        let song_info = self
+            .now_playing
+            .current_song
+            .as_ref()
+            .map(|s| (s.id.clone(), s.starred.is_some()));
+
+        if let Some((song_id, is_starred)) = song_info {
             if let Some(client) = &self.client {
-                let is_starred = song.starred.is_some();
-                if is_starred {
-                    let _ = client.unstar(Some(&song.id), None, None).await;
+                let result = if is_starred {
+                    client.unstar(Some(&song_id), None, None).await
                 } else {
-                    let _ = client.star(Some(&song.id), None, None).await;
+                    client.star(Some(&song_id), None, None).await
+                };
+
+                match result {
+                    Ok(()) => {
+                        // Update local state to reflect the change
+                        if let Some(song) = self.now_playing.current_song.as_mut() {
+                            if is_starred {
+                                song.starred = None;
+                            } else {
+                                // Set starred to current timestamp
+                                song.starred = Some(chrono::Utc::now().to_rfc3339());
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        let action = if is_starred { "unstar" } else { "star" };
+                        self.error_message = Some(format!("Failed to {} song: {}", action, e));
+                    }
                 }
             }
         }
@@ -1422,7 +1446,10 @@ impl App {
         if let Some(song) = self.now_playing.current_song.as_ref() {
             if let Some(client) = &self.client {
                 tracing::info!("Scrobbling: {}", song.title);
-                let _ = client.scrobble(&song.id, true).await;
+                if let Err(e) = client.scrobble(&song.id, true).await {
+                    tracing::error!("Failed to scrobble: {}", e);
+                    // Don't show error to user for scrobble failures - it's not critical
+                }
             }
         }
         Ok(())
