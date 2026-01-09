@@ -29,6 +29,7 @@ serde_json = "1"
 
 # Audio Playback
 rodio = { version = "0.19", features = ["symphonia-all"] }
+symphonia = { version = "0.5", features = ["all"] }
 
 # Authentication
 md-5 = "0.10"

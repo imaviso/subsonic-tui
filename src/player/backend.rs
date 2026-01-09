@@ -1,16 +1,209 @@
 //! Audio playback backend using rodio.
 
-use std::io::{BufReader, Cursor};
+use std::io::{Cursor, Read, Seek, SeekFrom};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use color_eyre::Result;
-use rodio::{Decoder, OutputStream, Sink, Source};
+use rodio::{OutputStream, Sink, Source};
+use symphonia::core::audio::{SampleBuffer, SignalSpec};
+use symphonia::core::codecs::{DecoderOptions, CODEC_TYPE_NULL};
+use symphonia::core::formats::{FormatOptions, FormatReader, SeekMode, SeekTo};
+use symphonia::core::io::{MediaSource, MediaSourceStream};
+use symphonia::core::meta::MetadataOptions;
+use symphonia::core::probe::Hint;
+use symphonia::core::units::Time;
+use symphonia::default::get_codecs;
+use symphonia::default::get_probe;
 use tokio::sync::mpsc;
 
 use crate::action::PlayerState;
 use crate::client::models::Song;
+
+/// A wrapper around a byte buffer that implements `MediaSource` with proper byte length.
+/// This is needed because rodio's `ReadSeekSource` returns `None` for `byte_len()`,
+/// which causes symphonia to treat some formats as unseekable.
+struct SeekableSource {
+    cursor: Cursor<Vec<u8>>,
+    len: u64,
+}
+
+impl SeekableSource {
+    fn new(data: Vec<u8>) -> Self {
+        let len = data.len() as u64;
+        Self {
+            cursor: Cursor::new(data),
+            len,
+        }
+    }
+}
+
+impl Read for SeekableSource {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        self.cursor.read(buf)
+    }
+}
+
+impl Seek for SeekableSource {
+    fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
+        self.cursor.seek(pos)
+    }
+}
+
+impl MediaSource for SeekableSource {
+    fn is_seekable(&self) -> bool {
+        true
+    }
+
+    fn byte_len(&self) -> Option<u64> {
+        Some(self.len)
+    }
+}
+
+/// A symphonia-based audio source that supports proper seeking.
+struct SymphoniaSource {
+    format: Box<dyn FormatReader>,
+    decoder: Box<dyn symphonia::core::codecs::Decoder>,
+    track_id: u32,
+    buffer: SampleBuffer<i16>,
+    current_frame_offset: usize,
+    spec: SignalSpec,
+    total_duration: Option<Time>,
+}
+
+impl SymphoniaSource {
+    fn new(data: Vec<u8>) -> Result<Self> {
+        let source = SeekableSource::new(data);
+        let mss = MediaSourceStream::new(Box::new(source), Default::default());
+
+        let hint = Hint::new();
+        let format_opts = FormatOptions {
+            enable_gapless: true,
+            ..Default::default()
+        };
+        let metadata_opts = MetadataOptions::default();
+
+        let probed = get_probe()
+            .format(&hint, mss, &format_opts, &metadata_opts)
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to probe format: {}", e))?;
+
+        let track = probed
+            .format
+            .tracks()
+            .iter()
+            .find(|t| t.codec_params.codec != CODEC_TYPE_NULL)
+            .ok_or_else(|| color_eyre::eyre::eyre!("No supported audio track found"))?;
+
+        let track_id = track.id;
+        let total_duration = track
+            .codec_params
+            .time_base
+            .zip(track.codec_params.n_frames)
+            .map(|(base, frames)| base.calc_time(frames));
+
+        let decoder = get_codecs()
+            .make(&track.codec_params, &DecoderOptions::default())
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to create decoder: {}", e))?;
+
+        let mut source = Self {
+            format: probed.format,
+            decoder,
+            track_id,
+            buffer: SampleBuffer::new(0, SignalSpec::new(44100, symphonia::core::audio::Channels::FRONT_LEFT)),
+            current_frame_offset: 0,
+            spec: SignalSpec::new(44100, symphonia::core::audio::Channels::FRONT_LEFT),
+            total_duration,
+        };
+
+        // Decode first frame to get proper spec
+        source.decode_next_frame();
+
+        Ok(source)
+    }
+
+    fn seek(&mut self, position: Duration) -> Result<()> {
+        let time = Time::from(position.as_secs_f64());
+
+        self.format
+            .seek(SeekMode::Accurate, SeekTo::Time { time, track_id: None })
+            .map_err(|e| color_eyre::eyre::eyre!("Seek failed: {}", e))?;
+
+        // Decode a frame after seeking to update buffers
+        self.decode_next_frame();
+        Ok(())
+    }
+
+    fn decode_next_frame(&mut self) -> bool {
+        const MAX_RETRIES: usize = 3;
+        let mut retries = 0;
+
+        loop {
+            let packet = match self.format.next_packet() {
+                Ok(p) => p,
+                Err(_) => return false,
+            };
+
+            // Skip packets not for our track
+            if packet.track_id() != self.track_id {
+                continue;
+            }
+
+            match self.decoder.decode(&packet) {
+                Ok(decoded) => {
+                    // Copy data from decoded buffer immediately to avoid borrow issues
+                    let spec = *decoded.spec();
+                    let duration = symphonia::core::units::Duration::from(decoded.capacity() as u64);
+                    let mut buffer = SampleBuffer::new(duration, spec);
+                    buffer.copy_interleaved_ref(decoded);
+
+                    self.spec = spec;
+                    self.buffer = buffer;
+                    self.current_frame_offset = 0;
+                    return true;
+                }
+                Err(_) => {
+                    retries += 1;
+                    if retries >= MAX_RETRIES {
+                        return false;
+                    }
+                }
+            }
+        }
+    }
+}
+
+impl Iterator for SymphoniaSource {
+    type Item = i16;
+
+    fn next(&mut self) -> Option<i16> {
+        if self.current_frame_offset >= self.buffer.len() && !self.decode_next_frame() {
+            return None;
+        }
+
+        let sample = *self.buffer.samples().get(self.current_frame_offset)?;
+        self.current_frame_offset += 1;
+        Some(sample)
+    }
+}
+
+impl Source for SymphoniaSource {
+    fn current_frame_len(&self) -> Option<usize> {
+        Some(self.buffer.samples().len().saturating_sub(self.current_frame_offset))
+    }
+
+    fn channels(&self) -> u16 {
+        self.spec.channels.count() as u16
+    }
+
+    fn sample_rate(&self) -> u32 {
+        self.spec.rate
+    }
+
+    fn total_duration(&self) -> Option<Duration> {
+        self.total_duration.map(|t| Duration::from_secs_f64(t.seconds as f64 + t.frac))
+    }
+}
 
 /// Messages sent to the player thread.
 #[derive(Debug)]
@@ -231,18 +424,18 @@ fn run_player_thread(
                     sink.lock().unwrap().set_volume(vol);
                 }
                 PlayerCommand::Seek(position) => {
-                    // Seek by recreating the source with skip_duration
+                    // Since our SymphoniaSource supports seeking, we recreate it with
+                    // the new position. This is fast because symphonia seeks directly
+                    // to the position in the compressed stream.
                     if let Some(ref audio_data) = current_audio_data {
-                        // Stop current playback
                         {
                             let s = sink.lock().unwrap();
                             s.stop();
                         }
-                        // Create new sink
                         *sink.lock().unwrap() = Sink::try_new(&stream_handle)?;
 
-                        // Play from the new position
-                        if let Err(e) = play_audio_data(audio_data, &sink, current_volume, position)
+                        if let Err(e) =
+                            play_audio_data(audio_data, &sink, current_volume, position)
                         {
                             let _ =
                                 event_tx.send(PlayerEvent::Error(format!("Seek failed: {}", e)));
@@ -297,23 +490,24 @@ fn fetch_audio_data(url: &str) -> Result<Vec<u8>> {
     Ok(bytes.to_vec())
 }
 
-/// Play audio data with optional skip duration for seeking.
+/// Play audio data with optional seek position.
+/// Uses SymphoniaSource directly to ensure proper seeking support.
 fn play_audio_data(
     audio_data: &[u8],
     sink: &Arc<Mutex<Sink>>,
     volume: f32,
-    skip: Duration,
+    seek_to: Duration,
 ) -> Result<()> {
-    let cursor = Cursor::new(audio_data.to_vec());
-    let source = Decoder::new(BufReader::new(cursor))?;
+    // Create our custom symphonia source with proper byte_len() support
+    let mut source = SymphoniaSource::new(audio_data.to_vec())?;
+
+    // If we need to seek, do it before appending to sink
+    if seek_to > Duration::ZERO {
+        source.seek(seek_to)?;
+    }
 
     let s = sink.lock().unwrap();
-    if skip > Duration::ZERO {
-        // Skip to the seek position
-        s.append(source.skip_duration(skip));
-    } else {
-        s.append(source);
-    }
+    s.append(source);
     s.set_volume(volume);
     s.play();
 
