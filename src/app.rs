@@ -220,10 +220,17 @@ impl App {
             Action::NavigateLeft => {
                 if self.search.active {
                     self.search.prev_section();
-                } else if self.library.tab == Tab::Favorites && self.library.view_depth == 0 {
-                    self.library.prev_favorites_section();
-                } else {
+                } else if self.focus == 1 {
+                    // Moving from queue to library
                     self.focus = 0;
+                    // If in favorites, start at rightmost section
+                    if self.library.tab == Tab::Favorites && self.library.view_depth == 0 {
+                        self.library.favorites_section = 2;
+                    }
+                } else if self.library.tab == Tab::Favorites && self.library.view_depth == 0 {
+                    // In favorites, try to move to previous section
+                    self.library.prev_favorites_section();
+                    // If already at leftmost, stay there (no wrap)
                 }
             }
 
@@ -231,7 +238,11 @@ impl App {
                 if self.search.active {
                     self.search.next_section();
                 } else if self.library.tab == Tab::Favorites && self.library.view_depth == 0 {
-                    self.library.next_favorites_section();
+                    // In favorites, try to move to next section
+                    if !self.library.next_favorites_section() && self.queue.visible {
+                        // At rightmost section, move to queue
+                        self.focus = 1;
+                    }
                 } else if self.queue.visible {
                     self.focus = 1;
                 }
@@ -299,6 +310,11 @@ impl App {
             Action::SwitchTab(tab) => {
                 self.library.tab = tab;
                 self.library.view_depth = 0;
+                self.focus = 0; // Always focus library when switching tabs
+                // Reset favorites section to artists when switching to favorites
+                if tab == Tab::Favorites {
+                    self.library.favorites_section = 0;
+                }
             }
 
             // Search

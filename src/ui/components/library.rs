@@ -360,18 +360,24 @@ impl LibraryState {
             .and_then(|i| self.favorites_songs.get(i))
     }
 
-    /// Move to next favorites section.
-    pub fn next_favorites_section(&mut self) {
-        self.favorites_section = (self.favorites_section + 1) % 3;
+    /// Move to next favorites section. Returns true if moved, false if at rightmost section.
+    pub fn next_favorites_section(&mut self) -> bool {
+        if self.favorites_section < 2 {
+            self.favorites_section += 1;
+            true
+        } else {
+            false
+        }
     }
 
-    /// Move to previous favorites section.
-    pub fn prev_favorites_section(&mut self) {
-        self.favorites_section = if self.favorites_section == 0 {
-            2
+    /// Move to previous favorites section. Returns true if moved, false if at leftmost section.
+    pub fn prev_favorites_section(&mut self) -> bool {
+        if self.favorites_section > 0 {
+            self.favorites_section -= 1;
+            true
         } else {
-            self.favorites_section - 1
-        };
+            false
+        }
     }
 
     /// Enter artist detail view.
