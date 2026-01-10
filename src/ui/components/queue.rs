@@ -378,26 +378,53 @@ pub fn render_queue(frame: &mut Frame, area: Rect, state: &mut QueueState, focus
                 let continuation_width = text_width.saturating_sub(2);
 
                 while pos < title_chars.len() {
-                    let chunk: String = title_chars
-                        .iter()
-                        .skip(pos)
-                        .take(continuation_width)
-                        .collect();
-                    pos += chunk.chars().count();
+                    let remaining_chars = title_chars.len() - pos;
+                    let is_last_chunk = remaining_chars <= continuation_width;
 
-                    lines.push(Line::from(vec![
-                        Span::raw(continuation_indent),
-                        Span::styled(chunk, title_style),
-                    ]));
+                    if is_last_chunk {
+                        // Last chunk - try to fit duration on same line
+                        let chunk: String = title_chars.iter().skip(pos).collect();
+                        let chunk_len = chunk.chars().count();
+                        let space_for_duration = continuation_width.saturating_sub(chunk_len);
+
+                        if space_for_duration > duration_len {
+                            // Duration fits on this line
+                            let padding = space_for_duration.saturating_sub(duration_len);
+                            let spaces = " ".repeat(padding);
+                            lines.push(Line::from(vec![
+                                Span::raw(continuation_indent),
+                                Span::styled(chunk, title_style),
+                                Span::raw(spaces),
+                                Span::styled(duration.clone(), duration_style),
+                            ]));
+                        } else {
+                            // Duration doesn't fit, put it on next line
+                            lines.push(Line::from(vec![
+                                Span::raw(continuation_indent),
+                                Span::styled(chunk, title_style),
+                            ]));
+                            let duration_padding = text_width.saturating_sub(duration_len);
+                            let duration_spaces = " ".repeat(duration_padding);
+                            lines.push(Line::from(vec![
+                                Span::raw(duration_spaces),
+                                Span::styled(duration.clone(), duration_style),
+                            ]));
+                        }
+                        break;
+                    } else {
+                        let chunk: String = title_chars
+                            .iter()
+                            .skip(pos)
+                            .take(continuation_width)
+                            .collect();
+                        pos += chunk.chars().count();
+
+                        lines.push(Line::from(vec![
+                            Span::raw(continuation_indent),
+                            Span::styled(chunk, title_style),
+                        ]));
+                    }
                 }
-
-                // Add duration on its own line, right-aligned
-                let duration_padding = text_width.saturating_sub(duration_len);
-                let duration_spaces = " ".repeat(duration_padding);
-                lines.push(Line::from(vec![
-                    Span::raw(duration_spaces),
-                    Span::styled(duration, duration_style),
-                ]));
 
                 ListItem::new(lines)
             }
