@@ -1,6 +1,6 @@
 //! Main application state and logic.
 
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use color_eyre::Result;
 use ratatui::layout::Rect;
@@ -82,6 +82,9 @@ pub struct App {
 
     /// UI layout areas for mouse detection
     pub layout: UiLayout,
+
+    /// Last volume scroll time for debouncing
+    last_volume_scroll: Option<Instant>,
 }
 
 impl App {
@@ -106,6 +109,7 @@ impl App {
             terminal_width: Some(width),
             terminal_height: Some(height),
             layout: UiLayout::default(),
+            last_volume_scroll: None,
         }
     }
 
@@ -410,12 +414,22 @@ impl App {
                     && x >= self.layout.volume_bar.x
                     && x < self.layout.volume_bar.x + self.layout.volume_bar.width
                 {
-                    // Adjust volume: scroll up = increase, scroll down = decrease (5% per scroll)
-                    let change = if delta < 0 { 5i16 } else { -5i16 };
-                    let new_volume = (self.now_playing.volume as i16 + change).clamp(0, 100) as u8;
-                    self.now_playing.volume = new_volume;
-                    if let Some(player) = &self.player {
-                        player.set_volume(new_volume as f32 / 100.0)?;
+                    // Debounce volume scroll events (ignore if less than 50ms since last scroll)
+                    let now = Instant::now();
+                    let should_process = self
+                        .last_volume_scroll
+                        .is_none_or(|last| now.duration_since(last) > Duration::from_millis(50));
+
+                    if should_process {
+                        self.last_volume_scroll = Some(now);
+                        // Adjust volume: scroll up = increase, scroll down = decrease (5% per scroll)
+                        let change = if delta < 0 { 5i16 } else { -5i16 };
+                        let new_volume =
+                            (self.now_playing.volume as i16 + change).clamp(0, 100) as u8;
+                        self.now_playing.volume = new_volume;
+                        if let Some(player) = &self.player {
+                            player.set_volume(new_volume as f32 / 100.0)?;
+                        }
                     }
                 } else if !self.search.active {
                     // Scroll the focused panel (3 items per scroll event)
