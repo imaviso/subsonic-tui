@@ -55,6 +55,14 @@ pub fn render(frame: &mut Frame, app: &mut App) {
         width: 10,               // "━━━━━━━━━━" is 10 chars
         height: 1,
     };
+    // Playback controls area: "󰒮 ▶ 󰒭 󰒟 󰑖" in first 14 chars of controls row
+    // Layout: prev(2) + space(1) + play(1-2) + space(1) + next(2) + space(1) + shuffle(2) + space(1) + repeat(2)
+    app.layout.controls = Rect {
+        x: main_chunks[2].x + 1, // +1 for left border
+        y: main_chunks[2].y + 2, // Row 1 within now_playing (controls row)
+        width: 14,
+        height: 1,
+    };
 
     // Render tabs
     render_tabs(frame, main_chunks[0], app.library.tab);
@@ -235,6 +243,7 @@ fn render_help(frame: &mut Frame, area: Rect) {
         Line::from("  Click tab     Switch to tab"),
         Line::from("  Click prog    Seek in track"),
         Line::from("  Click vol     Set volume"),
+        Line::from("  Click ctrl    Playback controls"),
         Line::from("  Scroll        Navigate list"),
         Line::from("  Scroll vol    Adjust volume"),
         Line::from(""),

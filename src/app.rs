@@ -28,6 +28,8 @@ pub struct UiLayout {
     pub progress_bar: Rect,
     /// Volume bar area within now playing
     pub volume_bar: Rect,
+    /// Playback controls area within now playing
+    pub controls: Rect,
 }
 
 /// Main application state.
@@ -327,6 +329,38 @@ impl App {
                     self.now_playing.volume = new_volume;
                     if let Some(player) = &self.player {
                         player.set_volume(new_volume as f32 / 100.0)?;
+                    }
+                }
+                // Check if click is on playback controls
+                else if y == self.layout.controls.y
+                    && x >= self.layout.controls.x
+                    && x < self.layout.controls.x + self.layout.controls.width
+                {
+                    // Controls layout: "󰒮 ▶ 󰒭 󰒟 󰑖"
+                    // Positions (0-indexed from controls.x):
+                    // 0-2: prev (󰒮 + space)
+                    // 2-4: play/pause (icon + space)
+                    // 4-7: next (󰒭 + space)
+                    // 7-9: shuffle (icon)
+                    // 9-10: space
+                    // 10-12: repeat (icon)
+                    let click_offset = x.saturating_sub(self.layout.controls.x);
+
+                    if click_offset < 3 {
+                        // Previous track
+                        self.action_tx.send(Action::PreviousTrack)?;
+                    } else if click_offset < 5 {
+                        // Play/Pause
+                        self.action_tx.send(Action::PlayPause)?;
+                    } else if click_offset < 8 {
+                        // Next track
+                        self.action_tx.send(Action::NextTrack)?;
+                    } else if click_offset < 10 {
+                        // Toggle shuffle
+                        self.action_tx.send(Action::ToggleShuffle)?;
+                    } else if click_offset < 14 {
+                        // Cycle repeat
+                        self.action_tx.send(Action::CycleRepeat)?;
                     }
                 }
                 // Check if click is on progress bar (for seeking)
