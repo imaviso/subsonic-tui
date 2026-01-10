@@ -281,11 +281,11 @@ pub fn render_queue(frame: &mut Frame, area: Rect, state: &mut QueueState, focus
         .title(title)
         .border_style(Style::default().fg(border_color));
 
-    // Calculate available width for content (subtract borders and highlight symbol)
-    // 2 for borders, 2 for highlight symbol "> "
-    let content_width = area.width.saturating_sub(4) as usize;
+    // Calculate available width for content (subtract borders only)
+    // 2 for borders
+    let content_width = area.width.saturating_sub(2) as usize;
     // Prefix takes 2 chars (playing indicator)
-    let text_width = content_width.saturating_sub(2);
+    let text_width = content_width;
 
     let items: Vec<ListItem> = state
         .songs
@@ -294,7 +294,7 @@ pub fn render_queue(frame: &mut Frame, area: Rect, state: &mut QueueState, focus
         .map(|(i, song)| {
             let is_current = state.current_index == Some(i);
 
-            let prefix = if is_current { " " } else { "  " };
+            let prefix = if is_current { "▶ " } else { "  " };
             let style = if is_current {
                 Style::default()
                     .fg(Color::Green)
@@ -305,19 +305,25 @@ pub fn render_queue(frame: &mut Frame, area: Rect, state: &mut QueueState, focus
 
             let duration = song.duration_string();
             let duration_style = Style::default().fg(Color::DarkGray);
+            let duration_len = duration.chars().count();
 
-            // Build the display text: "title  duration"
-            // We need space for: title + 2 spaces + duration
-            let duration_len = duration.len();
-            let title_max_width = text_width.saturating_sub(duration_len + 2);
+            // Use char count for proper width calculation
+            let title_char_count = song.title.chars().count();
+            let prefix_len = 2; // "▶ " or "  "
 
-            if song.title.len() <= title_max_width {
+            // Space needed: prefix + title + at least 1 space + duration
+            // Available: text_width
+            // Title can use: text_width - duration_len - 1 (for spacing)
+            let title_max_width = text_width.saturating_sub(duration_len + 1 + prefix_len);
+
+            if title_char_count <= title_max_width && title_max_width > 0 {
                 // Title fits on one line with duration
-                let padding = text_width.saturating_sub(song.title.len() + duration_len);
+                let padding =
+                    text_width.saturating_sub(prefix_len + title_char_count + duration_len);
                 let spaces = " ".repeat(padding);
                 ListItem::new(Line::from(vec![
                     Span::styled(prefix, style),
-                    Span::styled(&song.title, style),
+                    Span::styled(song.title.clone(), style),
                     Span::raw(spaces),
                     Span::styled(duration, duration_style),
                 ]))
@@ -326,9 +332,9 @@ pub fn render_queue(frame: &mut Frame, area: Rect, state: &mut QueueState, focus
                 let mut lines = Vec::new();
                 let title_chars: Vec<char> = song.title.chars().collect();
 
-                // First line: prefix + start of title
-                let first_line_width = text_width;
-                let first_chunk: String = title_chars.iter().take(first_line_width).collect();
+                // First line width: what's available after prefix
+                let first_line_max = text_width.saturating_sub(prefix_len);
+                let first_chunk: String = title_chars.iter().take(first_line_max).collect();
                 let mut pos = first_chunk.chars().count();
 
                 lines.push(Line::from(vec![
@@ -336,47 +342,42 @@ pub fn render_queue(frame: &mut Frame, area: Rect, state: &mut QueueState, focus
                     Span::styled(first_chunk, style),
                 ]));
 
-                // Continuation lines (indented to align with text after prefix)
-                let continuation_indent = "    "; // 4 spaces to align with prefix + some padding
+                // Continuation lines (indented with same prefix width)
+                let continuation_indent = "  "; // Same as prefix width
                 let continuation_width = text_width.saturating_sub(2);
 
                 while pos < title_chars.len() {
-                    let remaining: String = title_chars
+                    let chunk: String = title_chars
                         .iter()
                         .skip(pos)
                         .take(continuation_width)
                         .collect();
-                    pos += remaining.chars().count();
+                    pos += chunk.chars().count();
 
                     lines.push(Line::from(vec![
                         Span::raw(continuation_indent),
-                        Span::styled(remaining, style),
+                        Span::styled(chunk, style),
                     ]));
                 }
 
-                // Add duration on the last line (right-aligned)
-                if let Some(last_line) = lines.last_mut() {
-                    let last_text_len: usize =
-                        last_line.spans.iter().map(|s| s.content.len()).sum();
-                    let padding_needed = content_width.saturating_sub(last_text_len + duration_len);
-                    let spaces = " ".repeat(padding_needed);
-                    last_line.spans.push(Span::raw(spaces));
-                    last_line.spans.push(Span::styled(duration, duration_style));
-                }
+                // Add duration on its own line, right-aligned
+                let duration_padding = text_width.saturating_sub(duration_len);
+                let duration_spaces = " ".repeat(duration_padding);
+                lines.push(Line::from(vec![
+                    Span::raw(duration_spaces),
+                    Span::styled(duration, duration_style),
+                ]));
 
                 ListItem::new(lines)
             }
         })
         .collect();
 
-    let list = List::new(items)
-        .block(block)
-        .highlight_style(
-            Style::default()
-                .bg(Color::DarkGray)
-                .add_modifier(Modifier::BOLD),
-        )
-        .highlight_symbol("> ");
+    let list = List::new(items).block(block).highlight_style(
+        Style::default()
+            .bg(Color::DarkGray)
+            .add_modifier(Modifier::BOLD),
+    );
 
     frame.render_stateful_widget(list, area, &mut state.list_state);
 }
