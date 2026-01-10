@@ -1,6 +1,6 @@
 [package]
 name = "subsonic-tui"
-version = "0.2.0"
+version = "0.4.0"
 edition = "2021"
 authors = ["imaviso <mail@imaviso.com>"]
 description = "A TUI music player client for OpenSubsonic-compatible servers"
