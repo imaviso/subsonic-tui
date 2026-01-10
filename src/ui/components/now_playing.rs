@@ -94,9 +94,9 @@ impl NowPlayingState {
     /// Get play/pause symbol.
     pub fn state_symbol(&self) -> &'static str {
         match self.state {
-            PlayerState::Playing => "",
-            PlayerState::Paused => "",
-            PlayerState::Stopped => "",
+            PlayerState::Playing => "",
+            PlayerState::Paused => "",
+            PlayerState::Stopped => "",
             PlayerState::Buffering => "󰔟",
         }
     }

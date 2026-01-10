@@ -418,11 +418,11 @@ impl App {
                         player.set_volume(new_volume as f32 / 100.0)?;
                     }
                 } else if !self.search.active {
-                    // Scroll the focused panel
-                    let count = delta.unsigned_abs() as usize;
+                    // Scroll the focused panel (3 items per scroll event)
+                    let scroll_amount = 3;
                     if delta > 0 {
                         // Scroll down
-                        for _ in 0..count {
+                        for _ in 0..scroll_amount {
                             if self.focus == 0 {
                                 self.library.select_next();
                             } else {
@@ -431,7 +431,7 @@ impl App {
                         }
                     } else {
                         // Scroll up
-                        for _ in 0..count {
+                        for _ in 0..scroll_amount {
                             if self.focus == 0 {
                                 self.library.select_previous();
                             } else {
