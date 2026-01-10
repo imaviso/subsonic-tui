@@ -29,6 +29,17 @@ pub fn render(frame: &mut Frame, app: &mut App) {
         ])
         .split(area);
 
+    // Store layout areas for mouse detection
+    app.layout.tabs = main_chunks[0];
+    app.layout.now_playing = main_chunks[2];
+    // Progress bar is at the bottom of now_playing area (last row before border)
+    app.layout.progress_bar = Rect {
+        x: main_chunks[2].x + 1,
+        y: main_chunks[2].y + 3, // Row 3 within the 5-row now playing area
+        width: main_chunks[2].width.saturating_sub(2),
+        height: 1,
+    };
+
     // Render tabs
     render_tabs(frame, main_chunks[0], app.library.tab);
 
@@ -50,6 +61,16 @@ pub fn render(frame: &mut Frame, app: &mut App) {
             .constraints([Constraint::Percentage(100)])
             .split(main_chunks[1])
     };
+
+    // Store library area
+    app.layout.library = content_chunks[0];
+
+    // Store queue area if visible
+    if app.queue.visible && content_chunks.len() > 1 && !app.lyrics.visible {
+        app.layout.queue = Some(content_chunks[1]);
+    } else {
+        app.layout.queue = None;
+    }
 
     // Render library with focus indicator
     render_library(frame, content_chunks[0], &mut app.library, app.focus == 0);
@@ -186,6 +207,18 @@ fn render_help(frame: &mut Frame, area: Rect) {
         Line::from("  ?             Show this help"),
         Line::from("  x             Clear error message"),
         Line::from("  q             Quit"),
+        Line::from(""),
+        Line::from(Span::styled(
+            "Mouse",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        )),
+        Line::from("  Click         Select item / Switch focus"),
+        Line::from("  Double-click  Play item"),
+        Line::from("  Click tab     Switch to tab"),
+        Line::from("  Click prog    Seek in track"),
+        Line::from("  Scroll        Navigate list"),
         Line::from(""),
         Line::from(Span::styled(
             "Press Esc or ? to close",

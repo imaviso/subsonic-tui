@@ -1,6 +1,6 @@
 //! subsonic-tui - A TUI music player for OpenSubsonic-compatible servers.
 
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use clap::Parser;
 use color_eyre::Result;
@@ -19,6 +19,13 @@ mod ui;
 use action::{Action, PlayerState, RepeatMode, Tab};
 use app::App;
 use config::Config;
+
+/// State for double-click detection.
+#[derive(Default)]
+struct ClickState {
+    last_click: Option<Instant>,
+    last_pos: (u16, u16),
+}
 
 /// State tracked for MPRIS synchronization.
 #[derive(Default, Clone)]
@@ -127,6 +134,9 @@ async fn main() -> Result<()> {
     // Track state for MPRIS synchronization
     let mut mpris_state = MprisState::default();
 
+    // Track state for mouse double-click detection
+    let mut click_state = ClickState::default();
+
     // Main event loop
     let tick_rate = Duration::from_millis(100);
 
@@ -194,7 +204,7 @@ async fn main() -> Result<()> {
                     }
                 }
                 Event::Mouse(mouse) => {
-                    let action = handle_mouse_event(mouse);
+                    let action = handle_mouse_event(mouse, &mut click_state);
                     if action != Action::None {
                         action_tx.send(action)?;
                     }
@@ -375,10 +385,30 @@ fn handle_search_key(code: KeyCode, _modifiers: KeyModifiers) -> Action {
 }
 
 /// Handle mouse events.
-fn handle_mouse_event(mouse: crossterm::event::MouseEvent) -> Action {
+fn handle_mouse_event(mouse: crossterm::event::MouseEvent, click_state: &mut ClickState) -> Action {
     match mouse.kind {
         MouseEventKind::Down(crossterm::event::MouseButton::Left) => {
-            Action::MouseClick(mouse.column, mouse.row)
+            let pos = (mouse.column, mouse.row);
+            let now = Instant::now();
+
+            // Check for double-click (within 400ms and same position)
+            let is_double_click = if let Some(last) = click_state.last_click {
+                now.duration_since(last) < Duration::from_millis(400) && click_state.last_pos == pos
+            } else {
+                false
+            };
+
+            // Update click state
+            click_state.last_click = Some(now);
+            click_state.last_pos = pos;
+
+            if is_double_click {
+                // Reset click state after double-click to prevent triple-click
+                click_state.last_click = None;
+                Action::MouseDoubleClick(mouse.column, mouse.row)
+            } else {
+                Action::MouseClick(mouse.column, mouse.row)
+            }
         }
         MouseEventKind::ScrollUp => Action::MouseScroll(-3),
         MouseEventKind::ScrollDown => Action::MouseScroll(3),

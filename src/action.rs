@@ -26,6 +26,7 @@ pub enum Action {
 
     // Mouse
     MouseClick(u16, u16),
+    MouseDoubleClick(u16, u16),
     MouseScroll(i16), // positive = down, negative = up
 
     // Search

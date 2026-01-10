@@ -3,6 +3,7 @@
 use std::time::Duration;
 
 use color_eyre::Result;
+use ratatui::layout::Rect;
 use tokio::sync::mpsc;
 
 use crate::action::{Action, PlayerState, RepeatMode, Tab};
@@ -11,6 +12,21 @@ use crate::client::SubsonicClient;
 use crate::config::Config;
 use crate::player::{Player, PlayerEvent};
 use crate::ui::{LibraryState, LyricsState, NowPlayingState, QueueState, SearchState};
+
+/// UI layout areas for mouse click detection.
+#[derive(Debug, Default, Clone)]
+pub struct UiLayout {
+    /// Tab bar area
+    pub tabs: Rect,
+    /// Library panel area
+    pub library: Rect,
+    /// Queue panel area (if visible)
+    pub queue: Option<Rect>,
+    /// Now playing bar area
+    pub now_playing: Rect,
+    /// Progress bar area within now playing
+    pub progress_bar: Rect,
+}
 
 /// Main application state.
 pub struct App {
@@ -58,11 +74,18 @@ pub struct App {
 
     /// Terminal width for mouse click detection
     pub terminal_width: Option<u16>,
+
+    /// Terminal height for mouse click detection
+    pub terminal_height: Option<u16>,
+
+    /// UI layout areas for mouse detection
+    pub layout: UiLayout,
 }
 
 impl App {
     /// Create a new application instance.
     pub fn new(config: Config, action_tx: mpsc::UnboundedSender<Action>) -> Self {
+        let (width, height) = crossterm::terminal::size().unwrap_or((80, 24));
         Self {
             should_quit: false,
             config,
@@ -78,7 +101,9 @@ impl App {
             error_message: None,
             action_tx,
             focus: 0,
-            terminal_width: crossterm::terminal::size().ok().map(|(w, _)| w),
+            terminal_width: Some(width),
+            terminal_height: Some(height),
+            layout: UiLayout::default(),
         }
     }
 
@@ -191,9 +216,10 @@ impl App {
                 // Rendering is handled in the main loop
             }
 
-            Action::Resize(width, _) => {
-                // Update terminal width for mouse click detection
+            Action::Resize(width, height) => {
+                // Update terminal dimensions for mouse click detection
                 self.terminal_width = Some(width);
+                self.terminal_height = Some(height);
             }
 
             // Navigation
@@ -248,16 +274,106 @@ impl App {
                 }
             }
 
-            Action::MouseClick(x, _y) => {
-                // Determine which panel was clicked based on x position
-                // This is a simple heuristic - left 70% is library, right 30% is queue
-                if !self.search.active && !self.show_help && !self.show_track_info {
-                    if let Some(term_width) = self.terminal_width {
-                        let library_width = (term_width as f32 * 0.7) as u16;
-                        if x < library_width {
+            Action::MouseClick(x, y) => {
+                // Don't handle mouse clicks when overlays are active
+                if self.search.active || self.show_help || self.show_track_info {
+                    return Ok(());
+                }
+
+                // Check if click is on tabs
+                if y >= self.layout.tabs.y && y < self.layout.tabs.y + self.layout.tabs.height {
+                    // Calculate which tab was clicked
+                    let tabs = Tab::all();
+                    let tab_width = self.layout.tabs.width / tabs.len() as u16;
+                    if tab_width > 0 {
+                        let tab_index =
+                            ((x.saturating_sub(self.layout.tabs.x)) / tab_width) as usize;
+                        if tab_index < tabs.len() {
+                            let tab = tabs[tab_index];
+                            self.library.tab = tab;
+                            self.library.view_depth = 0;
                             self.focus = 0;
-                        } else if self.queue.visible {
-                            self.focus = 1;
+                            if tab == Tab::Favorites {
+                                self.library.favorites_section = 0;
+                            }
+                        }
+                    }
+                }
+                // Check if click is on progress bar (for seeking)
+                else if y >= self.layout.progress_bar.y
+                    && y < self.layout.progress_bar.y + self.layout.progress_bar.height
+                    && x >= self.layout.progress_bar.x
+                    && x < self.layout.progress_bar.x + self.layout.progress_bar.width
+                {
+                    // Calculate seek position based on click position
+                    let click_offset = x.saturating_sub(self.layout.progress_bar.x);
+                    let ratio = click_offset as f64 / self.layout.progress_bar.width as f64;
+                    let seek_pos = (ratio * self.now_playing.duration as f64) as u32;
+                    if let Some(player) = &self.player {
+                        player.seek(std::time::Duration::from_secs(seek_pos as u64))?;
+                        self.now_playing.position = seek_pos;
+                    }
+                }
+                // Check if click is on library
+                else if y >= self.layout.library.y
+                    && y < self.layout.library.y + self.layout.library.height
+                    && x >= self.layout.library.x
+                    && x < self.layout.library.x + self.layout.library.width
+                {
+                    self.focus = 0;
+                    // Calculate which item was clicked (accounting for border and title)
+                    let item_y = y.saturating_sub(self.layout.library.y + 1); // +1 for border
+                    self.library
+                        .active_list_state()
+                        .select(Some(item_y as usize));
+                }
+                // Check if click is on queue
+                else if let Some(queue_area) = self.layout.queue {
+                    if y >= queue_area.y
+                        && y < queue_area.y + queue_area.height
+                        && x >= queue_area.x
+                        && x < queue_area.x + queue_area.width
+                    {
+                        self.focus = 1;
+                        // Calculate which item was clicked (accounting for border and title)
+                        let item_y = y.saturating_sub(queue_area.y + 1); // +1 for border
+                        self.queue.list_state.select(Some(item_y as usize));
+                    }
+                }
+            }
+
+            Action::MouseDoubleClick(x, y) => {
+                // Don't handle mouse clicks when overlays are active
+                if self.search.active || self.show_help || self.show_track_info {
+                    return Ok(());
+                }
+
+                // Double-click on library item -> select and play
+                if y >= self.layout.library.y
+                    && y < self.layout.library.y + self.layout.library.height
+                    && x >= self.layout.library.x
+                    && x < self.layout.library.x + self.layout.library.width
+                {
+                    self.focus = 0;
+                    let item_y = y.saturating_sub(self.layout.library.y + 1);
+                    self.library
+                        .active_list_state()
+                        .select(Some(item_y as usize));
+                    self.handle_library_select().await?;
+                }
+                // Double-click on queue item -> play that item
+                else if let Some(queue_area) = self.layout.queue {
+                    if y >= queue_area.y
+                        && y < queue_area.y + queue_area.height
+                        && x >= queue_area.x
+                        && x < queue_area.x + queue_area.width
+                    {
+                        self.focus = 1;
+                        let item_y = y.saturating_sub(queue_area.y + 1);
+                        let idx = item_y as usize;
+                        if idx < self.queue.len() {
+                            self.queue.list_state.select(Some(idx));
+                            self.play_from_queue(idx)?;
                         }
                     }
                 }
