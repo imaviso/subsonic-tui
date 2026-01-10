@@ -287,24 +287,55 @@ pub fn render_queue(frame: &mut Frame, area: Rect, state: &mut QueueState, focus
     // Prefix takes 2 chars (playing indicator)
     let text_width = content_width;
 
+    // Get the currently selected index
+    let selected_index = state.list_state.selected();
+
     let items: Vec<ListItem> = state
         .songs
         .iter()
         .enumerate()
         .map(|(i, song)| {
             let is_current = state.current_index == Some(i);
+            let is_selected = selected_index == Some(i);
 
             let prefix = if is_current { "▶ " } else { "  " };
-            let style = if is_current {
-                Style::default()
-                    .fg(Color::Green)
-                    .add_modifier(Modifier::BOLD)
+
+            // Determine styles based on selection and current playing state
+            let (title_style, duration_style) = if is_selected {
+                // Selected item - use brighter colors for contrast on dark gray background
+                if is_current {
+                    (
+                        Style::default()
+                            .fg(Color::LightGreen)
+                            .add_modifier(Modifier::BOLD),
+                        Style::default().fg(Color::White),
+                    )
+                } else {
+                    (
+                        Style::default()
+                            .fg(Color::White)
+                            .add_modifier(Modifier::BOLD),
+                        Style::default().fg(Color::Gray),
+                    )
+                }
             } else {
-                Style::default().fg(Color::White)
+                // Not selected
+                if is_current {
+                    (
+                        Style::default()
+                            .fg(Color::Green)
+                            .add_modifier(Modifier::BOLD),
+                        Style::default().fg(Color::DarkGray),
+                    )
+                } else {
+                    (
+                        Style::default().fg(Color::White),
+                        Style::default().fg(Color::DarkGray),
+                    )
+                }
             };
 
             let duration = song.duration_string();
-            let duration_style = Style::default().fg(Color::DarkGray);
             let duration_len = duration.chars().count();
 
             // Use char count for proper width calculation
@@ -322,8 +353,8 @@ pub fn render_queue(frame: &mut Frame, area: Rect, state: &mut QueueState, focus
                     text_width.saturating_sub(prefix_len + title_char_count + duration_len);
                 let spaces = " ".repeat(padding);
                 ListItem::new(Line::from(vec![
-                    Span::styled(prefix, style),
-                    Span::styled(song.title.clone(), style),
+                    Span::styled(prefix, title_style),
+                    Span::styled(song.title.clone(), title_style),
                     Span::raw(spaces),
                     Span::styled(duration, duration_style),
                 ]))
@@ -338,8 +369,8 @@ pub fn render_queue(frame: &mut Frame, area: Rect, state: &mut QueueState, focus
                 let mut pos = first_chunk.chars().count();
 
                 lines.push(Line::from(vec![
-                    Span::styled(prefix, style),
-                    Span::styled(first_chunk, style),
+                    Span::styled(prefix, title_style),
+                    Span::styled(first_chunk, title_style),
                 ]));
 
                 // Continuation lines (indented with same prefix width)
@@ -356,7 +387,7 @@ pub fn render_queue(frame: &mut Frame, area: Rect, state: &mut QueueState, focus
 
                     lines.push(Line::from(vec![
                         Span::raw(continuation_indent),
-                        Span::styled(chunk, style),
+                        Span::styled(chunk, title_style),
                     ]));
                 }
 
@@ -373,11 +404,9 @@ pub fn render_queue(frame: &mut Frame, area: Rect, state: &mut QueueState, focus
         })
         .collect();
 
-    let list = List::new(items).block(block).highlight_style(
-        Style::default()
-            .bg(Color::DarkGray)
-            .add_modifier(Modifier::BOLD),
-    );
+    let list = List::new(items)
+        .block(block)
+        .highlight_style(Style::default().bg(Color::DarkGray));
 
     frame.render_stateful_widget(list, area, &mut state.list_state);
 }
