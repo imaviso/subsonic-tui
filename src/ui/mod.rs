@@ -42,9 +42,15 @@ pub fn render(frame: &mut Frame, app: &mut App) {
         height: 1,
     };
     // Volume bar is at the right side of row 1 (controls row)
-    // Format: "icon ━━━━━━━━━━ 100%" - volume bar is 10 chars, positioned in rightmost 18 chars
+    // Layout: controls(14) + album(min 10) + volume(18)
+    // Volume content (right-aligned): "icon  ━━━━━━━━━━  XX%"
+    // The bar is 10 chars, followed by space + 3-4 char percentage
+    // So bar ends at (width - 1 border - 5 for " XXX%") and starts 10 chars before that
+    let volume_section_end = main_chunks[2].x + main_chunks[2].width - 1; // -1 for right border
+    let bar_end = volume_section_end - 5; // " XXX%" is 5 chars
+    let bar_start = bar_end - 10; // bar is 10 chars
     app.layout.volume_bar = Rect {
-        x: main_chunks[2].x + main_chunks[2].width.saturating_sub(18), // 18 chars from right edge
+        x: bar_start,
         y: main_chunks[2].y + 2, // Row 1 within now_playing (controls row)
         width: 10,               // "━━━━━━━━━━" is 10 chars
         height: 1,
