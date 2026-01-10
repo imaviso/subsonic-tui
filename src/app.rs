@@ -337,13 +337,12 @@ impl App {
                     && x < self.layout.controls.x + self.layout.controls.width
                 {
                     // Controls layout: "󰒮 ▶ 󰒭 󰒟 󰑖" (nerd font icons are 2 cols each)
-                    // Positions (0-indexed from controls.x):
+                    // Adjusted positions based on testing:
                     // 0-2:   prev (󰒮=2 + space=1)
                     // 3-4:   play/pause (=2)
-                    // 5-8:   next (space=1 + 󰒭=2 + space=1)
-                    // 9-10:  shuffle (󰒟=2)
-                    // 11:    space
-                    // 12-13: repeat (󰑖=2)
+                    // 5-6:   next (space=1 + 󰒭=2) - shortened
+                    // 7-8:   shuffle (space=1 + 󰒟=2)
+                    // 9+:    repeat (space=1 + 󰑖=2)
                     let click_offset = x.saturating_sub(self.layout.controls.x);
 
                     if click_offset < 3 {
@@ -352,10 +351,10 @@ impl App {
                     } else if click_offset < 5 {
                         // Play/Pause
                         self.action_tx.send(Action::PlayPause)?;
-                    } else if click_offset < 9 {
+                    } else if click_offset < 7 {
                         // Next track
                         self.action_tx.send(Action::NextTrack)?;
-                    } else if click_offset < 11 {
+                    } else if click_offset < 9 {
                         // Toggle shuffle
                         self.action_tx.send(Action::ToggleShuffle)?;
                     } else {

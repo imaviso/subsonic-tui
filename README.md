@@ -13,7 +13,7 @@ Built with Rust and [ratatui](https://github.com/ratatui-org/ratatui).
 - Star/unstar tracks
 - Scrobbling support
 - Vim-style keyboard navigation
-- Mouse support (wip)
+- Mouse support for navigation, playback controls, seeking, and volume
 
 ## Installation
 
@@ -135,6 +135,19 @@ Options:
 | `?` | Show help |
 | `x` | Clear error message |
 | `q` | Quit |
+
+### Mouse
+
+| Action | Effect |
+|--------|--------|
+| Click | Select item / Switch focus |
+| Double-click | Play item |
+| Click tab | Switch to tab |
+| Click progress bar | Seek in track |
+| Click volume bar | Set volume |
+| Click controls | Prev / Play / Next / Shuffle / Repeat |
+| Scroll | Navigate list |
+| Scroll on volume | Adjust volume |
 
 ## Tabs
 

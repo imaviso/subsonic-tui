@@ -68,11 +68,11 @@ pub fn render(frame: &mut Frame, app: &mut App) {
         height: 1,
     };
     // Playback controls area: "󰒮 ▶ 󰒭 󰒟 󰑖" in first 14 chars of controls row
-    // Layout: prev(2) + space(1) + play(1-2) + space(1) + next(2) + space(1) + shuffle(2) + space(1) + repeat(2)
+    // controls_chunks[0] starts at info_area.x which is inside the border
     app.layout.controls = Rect {
-        x: info_area_x,          // Start after album art
-        y: main_chunks[2].y + 2, // Row 1 within now_playing (controls row)
-        width: 14,
+        x: info_area_x.saturating_sub(1), // Adjust for alignment
+        y: main_chunks[2].y + 2,          // Row 1 within now_playing (controls row)
+        width: 18,                        // Extended to capture all controls including repeat
         height: 1,
     };
 
