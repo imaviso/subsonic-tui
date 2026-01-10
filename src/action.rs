@@ -164,14 +164,6 @@ impl RepeatMode {
             Self::One => Self::Off,
         }
     }
-
-    pub fn symbol(&self) -> &'static str {
-        match self {
-            Self::Off => "  ",
-            Self::All => "󰑖 ",
-            Self::One => "󰑘 ",
-        }
-    }
 }
 
 /// Application tabs

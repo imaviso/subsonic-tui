@@ -32,20 +32,21 @@ pub fn render(frame: &mut Frame, app: &mut App) {
     // Store layout areas for mouse detection
     app.layout.tabs = main_chunks[0];
     app.layout.now_playing = main_chunks[2];
-    // Progress bar is at the bottom of now_playing area (last row before border)
+    // Progress bar is at the bottom of now_playing area (row 3 = last content row)
+    // New layout: row 0 = title, row 1 = controls, row 2 = progress bar
+    // With border, progress bar is at y + 3
     app.layout.progress_bar = Rect {
-        x: main_chunks[2].x + 1,
-        y: main_chunks[2].y + 3, // Row 3 within the 5-row now playing area
-        width: main_chunks[2].width.saturating_sub(2),
+        x: main_chunks[2].x + 7, // Skip border + time display (6 chars)
+        y: main_chunks[2].y + 3, // Row 2 within now_playing (after top border)
+        width: main_chunks[2].width.saturating_sub(16), // Minus borders and time displays
         height: 1,
     };
-    // Volume bar is at the right side of the info line (row 1)
-    // Format: "pos / dur  shuf rep vol[██████░░░░]" - volume bar is last 12 chars
-    // info_chunks[2] has Length(36), positioned at right side of now_playing
+    // Volume bar is at the right side of row 1 (controls row)
+    // Format: "icon ━━━━━━━━━━ 100%" - volume bar is 10 chars, positioned in rightmost 18 chars
     app.layout.volume_bar = Rect {
-        x: main_chunks[2].x + main_chunks[2].width.saturating_sub(14), // 12 for bar + 1 border + 1 padding
-        y: main_chunks[2].y + 1, // Row 1 within now_playing (after top border)
-        width: 12,               // "[██████░░░░]" is 12 chars
+        x: main_chunks[2].x + main_chunks[2].width.saturating_sub(18), // 18 chars from right edge
+        y: main_chunks[2].y + 2, // Row 1 within now_playing (controls row)
+        width: 10,               // "━━━━━━━━━━" is 10 chars
         height: 1,
     };
 
