@@ -3,8 +3,7 @@
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
+    widgets::{Block, Borders, Cell, ListState, Paragraph, Row, Table, TableState},
     Frame,
 };
 
@@ -611,58 +610,104 @@ pub fn render_library(frame: &mut Frame, area: Rect, state: &mut LibraryState, f
 
 fn render_artists_view(frame: &mut Frame, area: Rect, state: &mut LibraryState, block: Block) {
     if state.view_depth == 0 {
-        // Artist list
-        let items: Vec<ListItem> = state
+        // Artist list with columns: Artist Name | Album Count
+        let mut table_state = TableState::default();
+        table_state.select(state.artists_state.selected());
+        let selected_idx = table_state.selected();
+
+        let rows: Vec<Row> = state
             .artists
             .iter()
-            .map(|artist| {
+            .enumerate()
+            .map(|(i, artist)| {
+                let is_selected = selected_idx == Some(i);
                 let album_count = artist
                     .album_count
-                    .map(|c| format!(" ({} albums)", c))
+                    .map(|c| format!("{} albums", c))
                     .unwrap_or_default();
 
-                ListItem::new(Line::from(vec![
-                    Span::styled(&artist.name, Style::default().fg(Color::White)),
-                    Span::styled(album_count, Style::default().fg(Color::DarkGray)),
-                ]))
+                let (name_style, count_style) = if is_selected {
+                    (
+                        Style::default()
+                            .fg(Color::White)
+                            .add_modifier(Modifier::BOLD),
+                        Style::default().fg(Color::Gray),
+                    )
+                } else {
+                    (
+                        Style::default().fg(Color::White),
+                        Style::default().fg(Color::DarkGray),
+                    )
+                };
+
+                Row::new(vec![
+                    Cell::from(artist.name.clone()).style(name_style),
+                    Cell::from(album_count).style(count_style),
+                ])
             })
             .collect();
 
-        let list = List::new(items)
-            .block(block)
-            .highlight_style(
-                Style::default()
-                    .bg(Color::DarkGray)
-                    .add_modifier(Modifier::BOLD),
-            )
-            .highlight_symbol("> ");
+        let table = Table::new(
+            rows,
+            [
+                Constraint::Percentage(75), // Artist name
+                Constraint::Percentage(25), // Album count
+            ],
+        )
+        .block(block)
+        .row_highlight_style(Style::default().bg(Color::DarkGray))
+        .highlight_symbol("▶ ");
 
-        frame.render_stateful_widget(list, area, &mut state.artists_state);
+        frame.render_stateful_widget(table, area, &mut table_state);
+        *state.artists_state.selected_mut() = table_state.selected();
     } else if state.view_depth == 1 {
-        // Artist albums
-        let items: Vec<ListItem> = state
+        // Artist albums with columns: Album Name | Year
+        let mut table_state = TableState::default();
+        table_state.select(state.artist_albums_state.selected());
+        let selected_idx = table_state.selected();
+
+        let rows: Vec<Row> = state
             .artist_albums
             .iter()
-            .map(|album| {
-                let year = album.year.map(|y| format!(" ({})", y)).unwrap_or_default();
+            .enumerate()
+            .map(|(i, album)| {
+                let is_selected = selected_idx == Some(i);
+                let year = album.year.map(|y| y.to_string()).unwrap_or_default();
 
-                ListItem::new(Line::from(vec![
-                    Span::styled(&album.name, Style::default().fg(Color::White)),
-                    Span::styled(year, Style::default().fg(Color::DarkGray)),
-                ]))
+                let (name_style, year_style) = if is_selected {
+                    (
+                        Style::default()
+                            .fg(Color::White)
+                            .add_modifier(Modifier::BOLD),
+                        Style::default().fg(Color::Gray),
+                    )
+                } else {
+                    (
+                        Style::default().fg(Color::White),
+                        Style::default().fg(Color::DarkGray),
+                    )
+                };
+
+                Row::new(vec![
+                    Cell::from(album.name.clone()).style(name_style),
+                    Cell::from(year).style(year_style),
+                ])
             })
             .collect();
 
-        let list = List::new(items)
-            .block(block)
-            .highlight_style(
-                Style::default()
-                    .bg(Color::DarkGray)
-                    .add_modifier(Modifier::BOLD),
-            )
-            .highlight_symbol("> ");
+        let table = Table::new(
+            rows,
+            [
+                Constraint::Percentage(85), // Album name
+                Constraint::Length(6),      // Year
+            ],
+        )
+        .block(block)
+        .row_highlight_style(Style::default().bg(Color::DarkGray))
+        .highlight_symbol("▶ ");
 
-        frame.render_stateful_widget(list, area, &mut state.artist_albums_state);
+        frame.render_stateful_widget(table, area, &mut table_state);
+        *state.artist_albums_state.selected_mut() = table_state.selected();
     } else {
         // Album songs (depth 2)
         render_song_list(
@@ -677,31 +722,58 @@ fn render_artists_view(frame: &mut Frame, area: Rect, state: &mut LibraryState, 
 
 fn render_albums_view(frame: &mut Frame, area: Rect, state: &mut LibraryState, block: Block) {
     if state.view_depth == 0 {
-        // Album list
-        let items: Vec<ListItem> = state
+        // Album list with columns: Album Name | Artist | Year
+        let mut table_state = TableState::default();
+        table_state.select(state.albums_state.selected());
+        let selected_idx = table_state.selected();
+
+        let rows: Vec<Row> = state
             .albums
             .iter()
-            .map(|album| {
+            .enumerate()
+            .map(|(i, album)| {
+                let is_selected = selected_idx == Some(i);
                 let artist = album.artist.as_deref().unwrap_or("Unknown Artist");
+                let year = album.year.map(|y| y.to_string()).unwrap_or_default();
 
-                ListItem::new(Line::from(vec![
-                    Span::styled(&album.name, Style::default().fg(Color::White)),
-                    Span::styled(" - ", Style::default().fg(Color::DarkGray)),
-                    Span::styled(artist, Style::default().fg(Color::Cyan)),
-                ]))
+                let (name_style, artist_style, year_style) = if is_selected {
+                    (
+                        Style::default()
+                            .fg(Color::White)
+                            .add_modifier(Modifier::BOLD),
+                        Style::default().fg(Color::LightCyan),
+                        Style::default().fg(Color::Gray),
+                    )
+                } else {
+                    (
+                        Style::default().fg(Color::White),
+                        Style::default().fg(Color::Cyan),
+                        Style::default().fg(Color::DarkGray),
+                    )
+                };
+
+                Row::new(vec![
+                    Cell::from(album.name.clone()).style(name_style),
+                    Cell::from(artist.to_string()).style(artist_style),
+                    Cell::from(year).style(year_style),
+                ])
             })
             .collect();
 
-        let list = List::new(items)
-            .block(block)
-            .highlight_style(
-                Style::default()
-                    .bg(Color::DarkGray)
-                    .add_modifier(Modifier::BOLD),
-            )
-            .highlight_symbol("> ");
+        let table = Table::new(
+            rows,
+            [
+                Constraint::Percentage(50), // Album name
+                Constraint::Percentage(40), // Artist
+                Constraint::Length(6),      // Year
+            ],
+        )
+        .block(block)
+        .row_highlight_style(Style::default().bg(Color::DarkGray))
+        .highlight_symbol("▶ ");
 
-        frame.render_stateful_widget(list, area, &mut state.albums_state);
+        frame.render_stateful_widget(table, area, &mut table_state);
+        *state.albums_state.selected_mut() = table_state.selected();
     } else {
         // Album songs
         render_song_list(
@@ -720,33 +792,56 @@ fn render_songs_view(frame: &mut Frame, area: Rect, state: &mut LibraryState, bl
 
 fn render_playlists_view(frame: &mut Frame, area: Rect, state: &mut LibraryState, block: Block) {
     if state.view_depth == 0 {
-        // Playlist list
-        let items: Vec<ListItem> = state
+        // Playlist list with columns: Playlist Name | Song Count
+        let mut table_state = TableState::default();
+        table_state.select(state.playlists_state.selected());
+        let selected_idx = table_state.selected();
+
+        let rows: Vec<Row> = state
             .playlists
             .iter()
-            .map(|playlist| {
+            .enumerate()
+            .map(|(i, playlist)| {
+                let is_selected = selected_idx == Some(i);
                 let count = playlist
                     .song_count
-                    .map(|c| format!(" ({} songs)", c))
+                    .map(|c| format!("{} songs", c))
                     .unwrap_or_default();
 
-                ListItem::new(Line::from(vec![
-                    Span::styled(&playlist.name, Style::default().fg(Color::White)),
-                    Span::styled(count, Style::default().fg(Color::DarkGray)),
-                ]))
+                let (name_style, count_style) = if is_selected {
+                    (
+                        Style::default()
+                            .fg(Color::White)
+                            .add_modifier(Modifier::BOLD),
+                        Style::default().fg(Color::Gray),
+                    )
+                } else {
+                    (
+                        Style::default().fg(Color::White),
+                        Style::default().fg(Color::DarkGray),
+                    )
+                };
+
+                Row::new(vec![
+                    Cell::from(playlist.name.clone()).style(name_style),
+                    Cell::from(count).style(count_style),
+                ])
             })
             .collect();
 
-        let list = List::new(items)
-            .block(block)
-            .highlight_style(
-                Style::default()
-                    .bg(Color::DarkGray)
-                    .add_modifier(Modifier::BOLD),
-            )
-            .highlight_symbol("> ");
+        let table = Table::new(
+            rows,
+            [
+                Constraint::Percentage(75), // Playlist name
+                Constraint::Percentage(25), // Song count
+            ],
+        )
+        .block(block)
+        .row_highlight_style(Style::default().bg(Color::DarkGray))
+        .highlight_symbol("▶ ");
 
-        frame.render_stateful_widget(list, area, &mut state.playlists_state);
+        frame.render_stateful_widget(table, area, &mut table_state);
+        *state.playlists_state.selected_mut() = table_state.selected();
     } else {
         // Playlist songs
         render_song_list(
@@ -763,107 +858,181 @@ fn render_song_list(
     frame: &mut Frame,
     area: Rect,
     songs: &[Song],
-    state: &mut ListState,
+    list_state: &mut ListState,
     block: Block,
 ) {
-    let items: Vec<ListItem> = songs
+    // Convert ListState to TableState
+    let mut table_state = TableState::default();
+    table_state.select(list_state.selected());
+
+    let selected_idx = table_state.selected();
+
+    let rows: Vec<Row> = songs
         .iter()
         .enumerate()
         .map(|(i, song)| {
+            let is_selected = selected_idx == Some(i);
+
             let track = song
                 .track
-                .map(|t| format!("{:02}. ", t))
-                .unwrap_or_else(|| format!("{:02}. ", i + 1));
+                .map(|t| format!("{:02}", t))
+                .unwrap_or_else(|| format!("{:02}", i + 1));
             let duration = song.duration_string();
             let artist = song.display_artist();
 
-            ListItem::new(Line::from(vec![
-                Span::styled(track, Style::default().fg(Color::DarkGray)),
-                Span::styled(&song.title, Style::default().fg(Color::White)),
-                Span::styled(" - ", Style::default().fg(Color::DarkGray)),
-                Span::styled(artist, Style::default().fg(Color::Cyan)),
-                Span::styled(
-                    format!("  {}", duration),
+            // Use brighter colors for selected row
+            let (track_style, title_style, artist_style, duration_style) = if is_selected {
+                (
+                    Style::default().fg(Color::Gray),
+                    Style::default()
+                        .fg(Color::White)
+                        .add_modifier(Modifier::BOLD),
+                    Style::default().fg(Color::LightCyan),
+                    Style::default().fg(Color::Gray),
+                )
+            } else {
+                (
                     Style::default().fg(Color::DarkGray),
-                ),
-            ]))
+                    Style::default().fg(Color::White),
+                    Style::default().fg(Color::Cyan),
+                    Style::default().fg(Color::DarkGray),
+                )
+            };
+
+            Row::new(vec![
+                Cell::from(track).style(track_style),
+                Cell::from(song.title.clone()).style(title_style),
+                Cell::from(artist).style(artist_style),
+                Cell::from(duration).style(duration_style),
+            ])
         })
         .collect();
 
-    let list = List::new(items)
-        .block(block)
-        .highlight_style(
-            Style::default()
-                .bg(Color::DarkGray)
-                .add_modifier(Modifier::BOLD),
-        )
-        .highlight_symbol("> ");
+    let table = Table::new(
+        rows,
+        [
+            Constraint::Length(3),      // Track number
+            Constraint::Percentage(50), // Title
+            Constraint::Percentage(35), // Artist
+            Constraint::Length(6),      // Duration
+        ],
+    )
+    .block(block)
+    .row_highlight_style(Style::default().bg(Color::DarkGray))
+    .highlight_symbol("▶ ");
 
-    frame.render_stateful_widget(list, area, state);
+    frame.render_stateful_widget(table, area, &mut table_state);
+
+    // Sync selection back to ListState
+    *list_state.selected_mut() = table_state.selected();
 }
 
 fn render_genres_view(frame: &mut Frame, area: Rect, state: &mut LibraryState, block: Block) {
     if state.view_depth == 0 {
-        // Genre list
-        let items: Vec<ListItem> = state
+        // Genre list with columns: Genre | Albums | Songs
+        let mut table_state = TableState::default();
+        table_state.select(state.genres_state.selected());
+        let selected_idx = table_state.selected();
+
+        let rows: Vec<Row> = state
             .genres
             .iter()
-            .map(|genre| {
+            .enumerate()
+            .map(|(i, genre)| {
+                let is_selected = selected_idx == Some(i);
                 let album_count = genre
                     .album_count
-                    .map(|c| format!(" ({} albums)", c))
+                    .map(|c| format!("{} albums", c))
                     .unwrap_or_default();
                 let song_count = genre
                     .song_count
-                    .map(|c| format!(", {} songs", c))
+                    .map(|c| format!("{} songs", c))
                     .unwrap_or_default();
 
-                ListItem::new(Line::from(vec![
-                    Span::styled(&genre.value, Style::default().fg(Color::White)),
-                    Span::styled(
-                        format!("{}{}", album_count, song_count),
+                let (name_style, count_style) = if is_selected {
+                    (
+                        Style::default()
+                            .fg(Color::White)
+                            .add_modifier(Modifier::BOLD),
+                        Style::default().fg(Color::Gray),
+                    )
+                } else {
+                    (
+                        Style::default().fg(Color::White),
                         Style::default().fg(Color::DarkGray),
-                    ),
-                ]))
+                    )
+                };
+
+                Row::new(vec![
+                    Cell::from(genre.value.clone()).style(name_style),
+                    Cell::from(album_count).style(count_style),
+                    Cell::from(song_count).style(count_style),
+                ])
             })
             .collect();
 
-        let list = List::new(items)
-            .block(block)
-            .highlight_style(
-                Style::default()
-                    .bg(Color::DarkGray)
-                    .add_modifier(Modifier::BOLD),
-            )
-            .highlight_symbol("> ");
+        let table = Table::new(
+            rows,
+            [
+                Constraint::Percentage(50), // Genre name
+                Constraint::Percentage(25), // Album count
+                Constraint::Percentage(25), // Song count
+            ],
+        )
+        .block(block)
+        .row_highlight_style(Style::default().bg(Color::DarkGray))
+        .highlight_symbol("▶ ");
 
-        frame.render_stateful_widget(list, area, &mut state.genres_state);
+        frame.render_stateful_widget(table, area, &mut table_state);
+        *state.genres_state.selected_mut() = table_state.selected();
     } else if state.view_depth == 1 {
-        // Genre albums
-        let items: Vec<ListItem> = state
+        // Genre albums with columns: Album | Artist
+        let mut table_state = TableState::default();
+        table_state.select(state.genre_albums_state.selected());
+        let selected_idx = table_state.selected();
+
+        let rows: Vec<Row> = state
             .genre_albums
             .iter()
-            .map(|album| {
+            .enumerate()
+            .map(|(i, album)| {
+                let is_selected = selected_idx == Some(i);
                 let artist = album.artist.as_deref().unwrap_or("Unknown Artist");
 
-                ListItem::new(Line::from(vec![
-                    Span::styled(&album.name, Style::default().fg(Color::White)),
-                    Span::styled(" - ", Style::default().fg(Color::DarkGray)),
-                    Span::styled(artist, Style::default().fg(Color::Cyan)),
-                ]))
+                let (name_style, artist_style) = if is_selected {
+                    (
+                        Style::default()
+                            .fg(Color::White)
+                            .add_modifier(Modifier::BOLD),
+                        Style::default().fg(Color::LightCyan),
+                    )
+                } else {
+                    (
+                        Style::default().fg(Color::White),
+                        Style::default().fg(Color::Cyan),
+                    )
+                };
+
+                Row::new(vec![
+                    Cell::from(album.name.clone()).style(name_style),
+                    Cell::from(artist.to_string()).style(artist_style),
+                ])
             })
             .collect();
 
-        let list = List::new(items)
-            .block(block)
-            .highlight_style(
-                Style::default()
-                    .bg(Color::DarkGray)
-                    .add_modifier(Modifier::BOLD),
-            )
-            .highlight_symbol("> ");
+        let table = Table::new(
+            rows,
+            [
+                Constraint::Percentage(60), // Album name
+                Constraint::Percentage(40), // Artist
+            ],
+        )
+        .block(block)
+        .row_highlight_style(Style::default().bg(Color::DarkGray))
+        .highlight_symbol("▶ ");
 
-        frame.render_stateful_widget(list, area, &mut state.genre_albums_state);
+        frame.render_stateful_widget(table, area, &mut table_state);
+        *state.genre_albums_state.selected_mut() = table_state.selected();
     } else {
         // Album songs (depth 2)
         render_song_list(
@@ -903,27 +1072,35 @@ fn render_favorites_view(frame: &mut Frame, area: Rect, state: &mut LibraryState
                 Color::DarkGray
             }));
 
-        let artist_items: Vec<ListItem> = state
+        let mut artists_table_state = TableState::default();
+        artists_table_state.select(state.favorites_artists_state.selected());
+        let artists_selected_idx = artists_table_state.selected();
+
+        let artist_rows: Vec<Row> = state
             .favorites_artists
             .iter()
-            .map(|artist| {
-                ListItem::new(Line::from(vec![Span::styled(
-                    &artist.name,
-                    Style::default().fg(Color::White),
-                )]))
+            .enumerate()
+            .map(|(i, artist)| {
+                let is_selected = artists_selected_idx == Some(i);
+                let style = if is_selected {
+                    Style::default()
+                        .fg(Color::White)
+                        .add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default().fg(Color::White)
+                };
+
+                Row::new(vec![Cell::from(artist.name.clone()).style(style)])
             })
             .collect();
 
-        let artists_list = List::new(artist_items)
+        let artists_table = Table::new(artist_rows, [Constraint::Percentage(100)])
             .block(artists_block)
-            .highlight_style(
-                Style::default()
-                    .bg(Color::DarkGray)
-                    .add_modifier(Modifier::BOLD),
-            )
-            .highlight_symbol("> ");
+            .row_highlight_style(Style::default().bg(Color::DarkGray))
+            .highlight_symbol("▶ ");
 
-        frame.render_stateful_widget(artists_list, columns[0], &mut state.favorites_artists_state);
+        frame.render_stateful_widget(artists_table, columns[0], &mut artists_table_state);
+        *state.favorites_artists_state.selected_mut() = artists_table_state.selected();
 
         // Render albums column
         let albums_block = Block::default()
@@ -935,29 +1112,49 @@ fn render_favorites_view(frame: &mut Frame, area: Rect, state: &mut LibraryState
                 Color::DarkGray
             }));
 
-        let album_items: Vec<ListItem> = state
+        let mut albums_table_state = TableState::default();
+        albums_table_state.select(state.favorites_albums_state.selected());
+        let albums_selected_idx = albums_table_state.selected();
+
+        let album_rows: Vec<Row> = state
             .favorites_albums
             .iter()
-            .map(|album| {
+            .enumerate()
+            .map(|(i, album)| {
+                let is_selected = albums_selected_idx == Some(i);
                 let artist = album.artist.as_deref().unwrap_or("Unknown");
-                ListItem::new(Line::from(vec![
-                    Span::styled(&album.name, Style::default().fg(Color::White)),
-                    Span::styled(" - ", Style::default().fg(Color::DarkGray)),
-                    Span::styled(artist, Style::default().fg(Color::Cyan)),
-                ]))
+
+                let (name_style, artist_style) = if is_selected {
+                    (
+                        Style::default()
+                            .fg(Color::White)
+                            .add_modifier(Modifier::BOLD),
+                        Style::default().fg(Color::LightCyan),
+                    )
+                } else {
+                    (
+                        Style::default().fg(Color::White),
+                        Style::default().fg(Color::Cyan),
+                    )
+                };
+
+                Row::new(vec![
+                    Cell::from(album.name.clone()).style(name_style),
+                    Cell::from(artist.to_string()).style(artist_style),
+                ])
             })
             .collect();
 
-        let albums_list = List::new(album_items)
-            .block(albums_block)
-            .highlight_style(
-                Style::default()
-                    .bg(Color::DarkGray)
-                    .add_modifier(Modifier::BOLD),
-            )
-            .highlight_symbol("> ");
+        let albums_table = Table::new(
+            album_rows,
+            [Constraint::Percentage(60), Constraint::Percentage(40)],
+        )
+        .block(albums_block)
+        .row_highlight_style(Style::default().bg(Color::DarkGray))
+        .highlight_symbol("▶ ");
 
-        frame.render_stateful_widget(albums_list, columns[1], &mut state.favorites_albums_state);
+        frame.render_stateful_widget(albums_table, columns[1], &mut albums_table_state);
+        *state.favorites_albums_state.selected_mut() = albums_table_state.selected();
 
         // Render songs column
         let songs_block = Block::default()
@@ -969,58 +1166,105 @@ fn render_favorites_view(frame: &mut Frame, area: Rect, state: &mut LibraryState
                 Color::DarkGray
             }));
 
-        let song_items: Vec<ListItem> = state
+        let mut songs_table_state = TableState::default();
+        songs_table_state.select(state.favorites_songs_state.selected());
+        let songs_selected_idx = songs_table_state.selected();
+
+        let song_rows: Vec<Row> = state
             .favorites_songs
             .iter()
-            .map(|song| {
+            .enumerate()
+            .map(|(i, song)| {
+                let is_selected = songs_selected_idx == Some(i);
                 let artist = song.display_artist();
                 let duration = song.duration_string();
-                ListItem::new(Line::from(vec![
-                    Span::styled(&song.title, Style::default().fg(Color::White)),
-                    Span::styled(" - ", Style::default().fg(Color::DarkGray)),
-                    Span::styled(artist, Style::default().fg(Color::Cyan)),
-                    Span::styled(
-                        format!("  {}", duration),
+
+                let (title_style, artist_style, duration_style) = if is_selected {
+                    (
+                        Style::default()
+                            .fg(Color::White)
+                            .add_modifier(Modifier::BOLD),
+                        Style::default().fg(Color::LightCyan),
+                        Style::default().fg(Color::Gray),
+                    )
+                } else {
+                    (
+                        Style::default().fg(Color::White),
+                        Style::default().fg(Color::Cyan),
                         Style::default().fg(Color::DarkGray),
-                    ),
-                ]))
+                    )
+                };
+
+                Row::new(vec![
+                    Cell::from(song.title.clone()).style(title_style),
+                    Cell::from(artist).style(artist_style),
+                    Cell::from(duration).style(duration_style),
+                ])
             })
             .collect();
 
-        let songs_list = List::new(song_items)
-            .block(songs_block)
-            .highlight_style(
-                Style::default()
-                    .bg(Color::DarkGray)
-                    .add_modifier(Modifier::BOLD),
-            )
-            .highlight_symbol("> ");
+        let songs_table = Table::new(
+            song_rows,
+            [
+                Constraint::Percentage(50),
+                Constraint::Percentage(35),
+                Constraint::Length(6),
+            ],
+        )
+        .block(songs_block)
+        .row_highlight_style(Style::default().bg(Color::DarkGray))
+        .highlight_symbol("▶ ");
 
-        frame.render_stateful_widget(songs_list, columns[2], &mut state.favorites_songs_state);
+        frame.render_stateful_widget(songs_table, columns[2], &mut songs_table_state);
+        *state.favorites_songs_state.selected_mut() = songs_table_state.selected();
     } else if state.view_depth == 1 {
-        // Drill-down into artist -> albums
-        let items: Vec<ListItem> = state
+        // Drill-down into artist -> albums with columns: Album | Year
+        let mut table_state = TableState::default();
+        table_state.select(state.artist_albums_state.selected());
+        let selected_idx = table_state.selected();
+
+        let rows: Vec<Row> = state
             .artist_albums
             .iter()
-            .map(|album| {
-                let year = album.year.map(|y| format!(" ({})", y)).unwrap_or_default();
-                ListItem::new(Line::from(vec![
-                    Span::styled(&album.name, Style::default().fg(Color::White)),
-                    Span::styled(year, Style::default().fg(Color::DarkGray)),
-                ]))
+            .enumerate()
+            .map(|(i, album)| {
+                let is_selected = selected_idx == Some(i);
+                let year = album.year.map(|y| y.to_string()).unwrap_or_default();
+
+                let (name_style, year_style) = if is_selected {
+                    (
+                        Style::default()
+                            .fg(Color::White)
+                            .add_modifier(Modifier::BOLD),
+                        Style::default().fg(Color::Gray),
+                    )
+                } else {
+                    (
+                        Style::default().fg(Color::White),
+                        Style::default().fg(Color::DarkGray),
+                    )
+                };
+
+                Row::new(vec![
+                    Cell::from(album.name.clone()).style(name_style),
+                    Cell::from(year).style(year_style),
+                ])
             })
             .collect();
 
-        let list = List::new(items)
-            .block(block)
-            .highlight_style(
-                Style::default()
-                    .bg(Color::DarkGray)
-                    .add_modifier(Modifier::BOLD),
-            )
-            .highlight_symbol("> ");
+        let table = Table::new(
+            rows,
+            [
+                Constraint::Percentage(85), // Album name
+                Constraint::Length(6),      // Year
+            ],
+        )
+        .block(block)
+        .row_highlight_style(Style::default().bg(Color::DarkGray))
+        .highlight_symbol("▶ ");
 
-        frame.render_stateful_widget(list, area, &mut state.artist_albums_state);
+        frame.render_stateful_widget(table, area, &mut table_state);
+        *state.artist_albums_state.selected_mut() = table_state.selected();
     } else {
         // Drill-down into album -> songs (depth 2)
         render_song_list(
