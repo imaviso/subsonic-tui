@@ -21,6 +21,8 @@ pub enum Action {
     Select,
     Back,
     SwitchTab(Tab),
+    NextTab,
+    PrevTab,
 
     // Mouse
     MouseClick(u16, u16),
@@ -214,6 +216,30 @@ impl Tab {
             Self::Playlists => 3,
             Self::Genres => 4,
             Self::Favorites => 5,
+        }
+    }
+
+    /// Get the next tab (wraps around).
+    pub fn next(&self) -> Tab {
+        match self {
+            Self::Artists => Self::Albums,
+            Self::Albums => Self::Songs,
+            Self::Songs => Self::Playlists,
+            Self::Playlists => Self::Genres,
+            Self::Genres => Self::Favorites,
+            Self::Favorites => Self::Artists,
+        }
+    }
+
+    /// Get the previous tab (wraps around).
+    pub fn prev(&self) -> Tab {
+        match self {
+            Self::Artists => Self::Favorites,
+            Self::Albums => Self::Artists,
+            Self::Songs => Self::Albums,
+            Self::Playlists => Self::Songs,
+            Self::Genres => Self::Playlists,
+            Self::Favorites => Self::Genres,
         }
     }
 }

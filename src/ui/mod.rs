@@ -145,6 +145,7 @@ fn render_help(frame: &mut Frame, area: Rect) {
         Line::from("  g/G           Jump to top/bottom"),
         Line::from("  Ctrl+d/u      Scroll half page down/up"),
         Line::from("  1-6           Switch tabs (Artists/Albums/Songs/Playlists/Genres/Favorites)"),
+        Line::from("  Tab/Shift+Tab Cycle through tabs"),
         Line::from(""),
         Line::from(Span::styled(
             "Playback",

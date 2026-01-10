@@ -317,6 +317,26 @@ impl App {
                 }
             }
 
+            Action::NextTab => {
+                let next = self.library.tab.next();
+                self.library.tab = next;
+                self.library.view_depth = 0;
+                self.focus = 0;
+                if next == Tab::Favorites {
+                    self.library.favorites_section = 0;
+                }
+            }
+
+            Action::PrevTab => {
+                let prev = self.library.tab.prev();
+                self.library.tab = prev;
+                self.library.view_depth = 0;
+                self.focus = 0;
+                if prev == Tab::Favorites {
+                    self.library.favorites_section = 0;
+                }
+            }
+
             // Search
             Action::OpenSearch => {
                 self.search.open();

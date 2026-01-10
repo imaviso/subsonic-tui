@@ -306,6 +306,8 @@ fn handle_key_event(code: KeyCode, modifiers: KeyModifiers, app: &App) -> Action
         KeyCode::Char('4') => Action::SwitchTab(Tab::Playlists),
         KeyCode::Char('5') => Action::SwitchTab(Tab::Genres),
         KeyCode::Char('6') => Action::SwitchTab(Tab::Favorites),
+        KeyCode::Tab => Action::NextTab,
+        KeyCode::BackTab => Action::PrevTab,
 
         // Search
         KeyCode::Char('/') => Action::OpenSearch,
