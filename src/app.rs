@@ -889,7 +889,7 @@ impl App {
                         // Add all songs from album to queue and play selected
                         self.queue.clear();
                         self.queue.add_all(self.library.album_songs.clone());
-                        if let Some(idx) = self.library.songs_state.selected() {
+                        if let Some(idx) = self.library.album_songs_state.selected() {
                             self.play_from_queue(idx)?;
                         }
                     }
@@ -908,7 +908,7 @@ impl App {
                         // Add all songs from album to queue and play selected
                         self.queue.clear();
                         self.queue.add_all(self.library.album_songs.clone());
-                        if let Some(idx) = self.library.songs_state.selected() {
+                        if let Some(idx) = self.library.album_songs_state.selected() {
                             self.play_from_queue(idx)?;
                         }
                     }
@@ -935,7 +935,7 @@ impl App {
                         // Add all songs from playlist to queue and play selected
                         self.queue.clear();
                         self.queue.add_all(self.library.album_songs.clone());
-                        if let Some(idx) = self.library.songs_state.selected() {
+                        if let Some(idx) = self.library.album_songs_state.selected() {
                             self.play_from_queue(idx)?;
                         }
                     }
@@ -960,7 +960,7 @@ impl App {
                         // Add all songs from album to queue and play selected
                         self.queue.clear();
                         self.queue.add_all(self.library.album_songs.clone());
-                        if let Some(idx) = self.library.songs_state.selected() {
+                        if let Some(idx) = self.library.album_songs_state.selected() {
                             self.play_from_queue(idx)?;
                         }
                     }
@@ -1004,7 +1004,7 @@ impl App {
                     if let Some(_song) = self.library.selected_song_item().cloned() {
                         self.queue.clear();
                         self.queue.add_all(self.library.album_songs.clone());
-                        if let Some(idx) = self.library.songs_state.selected() {
+                        if let Some(idx) = self.library.album_songs_state.selected() {
                             self.play_from_queue(idx)?;
                         }
                     }
