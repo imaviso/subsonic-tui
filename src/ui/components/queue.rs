@@ -281,6 +281,12 @@ pub fn render_queue(frame: &mut Frame, area: Rect, state: &mut QueueState, focus
         .title(title)
         .border_style(Style::default().fg(border_color));
 
+    // Calculate available width for content (subtract borders and highlight symbol)
+    // 2 for borders, 2 for highlight symbol "> "
+    let content_width = area.width.saturating_sub(4) as usize;
+    // Prefix takes 2 chars (playing indicator)
+    let text_width = content_width.saturating_sub(2);
+
     let items: Vec<ListItem> = state
         .songs
         .iter()
@@ -288,7 +294,7 @@ pub fn render_queue(frame: &mut Frame, area: Rect, state: &mut QueueState, focus
         .map(|(i, song)| {
             let is_current = state.current_index == Some(i);
 
-            let prefix = if is_current { " " } else { "  " };
+            let prefix = if is_current { " " } else { "  " };
             let style = if is_current {
                 Style::default()
                     .fg(Color::Green)
@@ -298,15 +304,68 @@ pub fn render_queue(frame: &mut Frame, area: Rect, state: &mut QueueState, focus
             };
 
             let duration = song.duration_string();
+            let duration_style = Style::default().fg(Color::DarkGray);
 
-            ListItem::new(Line::from(vec![
-                Span::styled(prefix, style),
-                Span::styled(&song.title, style),
-                Span::styled(
-                    format!(" {}", duration),
-                    Style::default().fg(Color::DarkGray),
-                ),
-            ]))
+            // Build the display text: "title  duration"
+            // We need space for: title + 2 spaces + duration
+            let duration_len = duration.len();
+            let title_max_width = text_width.saturating_sub(duration_len + 2);
+
+            if song.title.len() <= title_max_width {
+                // Title fits on one line with duration
+                let padding = text_width.saturating_sub(song.title.len() + duration_len);
+                let spaces = " ".repeat(padding);
+                ListItem::new(Line::from(vec![
+                    Span::styled(prefix, style),
+                    Span::styled(&song.title, style),
+                    Span::raw(spaces),
+                    Span::styled(duration, duration_style),
+                ]))
+            } else {
+                // Title needs to wrap - create multiple lines
+                let mut lines = Vec::new();
+                let title_chars: Vec<char> = song.title.chars().collect();
+
+                // First line: prefix + start of title
+                let first_line_width = text_width;
+                let first_chunk: String = title_chars.iter().take(first_line_width).collect();
+                let mut pos = first_chunk.chars().count();
+
+                lines.push(Line::from(vec![
+                    Span::styled(prefix, style),
+                    Span::styled(first_chunk, style),
+                ]));
+
+                // Continuation lines (indented to align with text after prefix)
+                let continuation_indent = "    "; // 4 spaces to align with prefix + some padding
+                let continuation_width = text_width.saturating_sub(2);
+
+                while pos < title_chars.len() {
+                    let remaining: String = title_chars
+                        .iter()
+                        .skip(pos)
+                        .take(continuation_width)
+                        .collect();
+                    pos += remaining.chars().count();
+
+                    lines.push(Line::from(vec![
+                        Span::raw(continuation_indent),
+                        Span::styled(remaining, style),
+                    ]));
+                }
+
+                // Add duration on the last line (right-aligned)
+                if let Some(last_line) = lines.last_mut() {
+                    let last_text_len: usize =
+                        last_line.spans.iter().map(|s| s.content.len()).sum();
+                    let padding_needed = content_width.saturating_sub(last_text_len + duration_len);
+                    let spaces = " ".repeat(padding_needed);
+                    last_line.spans.push(Span::raw(spaces));
+                    last_line.spans.push(Span::styled(duration, duration_style));
+                }
+
+                ListItem::new(lines)
+            }
         })
         .collect();
 
