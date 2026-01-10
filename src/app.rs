@@ -406,9 +406,21 @@ impl App {
                 }
             }
 
-            Action::MouseScroll(delta) => {
-                // Scroll the focused panel
-                if !self.search.active {
+            Action::MouseScroll(delta, x, y) => {
+                // Check if scrolling on volume bar
+                if y == self.layout.volume_bar.y
+                    && x >= self.layout.volume_bar.x
+                    && x < self.layout.volume_bar.x + self.layout.volume_bar.width
+                {
+                    // Adjust volume: scroll up = increase, scroll down = decrease
+                    let change = if delta < 0 { 10i16 } else { -10i16 };
+                    let new_volume = (self.now_playing.volume as i16 + change).clamp(0, 100) as u8;
+                    self.now_playing.volume = new_volume;
+                    if let Some(player) = &self.player {
+                        player.set_volume(new_volume as f32 / 100.0)?;
+                    }
+                } else if !self.search.active {
+                    // Scroll the focused panel
                     let count = delta.unsigned_abs() as usize;
                     if delta > 0 {
                         // Scroll down

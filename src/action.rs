@@ -27,7 +27,7 @@ pub enum Action {
     // Mouse
     MouseClick(u16, u16),
     MouseDoubleClick(u16, u16),
-    MouseScroll(i16), // positive = down, negative = up
+    MouseScroll(i16, u16, u16), // (delta, x, y) - positive delta = down, negative = up
 
     // Search
     OpenSearch,

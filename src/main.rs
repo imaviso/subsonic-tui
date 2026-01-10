@@ -410,8 +410,8 @@ fn handle_mouse_event(mouse: crossterm::event::MouseEvent, click_state: &mut Cli
                 Action::MouseClick(mouse.column, mouse.row)
             }
         }
-        MouseEventKind::ScrollUp => Action::MouseScroll(-3),
-        MouseEventKind::ScrollDown => Action::MouseScroll(3),
+        MouseEventKind::ScrollUp => Action::MouseScroll(-3, mouse.column, mouse.row),
+        MouseEventKind::ScrollDown => Action::MouseScroll(3, mouse.column, mouse.row),
         _ => Action::None,
     }
 }

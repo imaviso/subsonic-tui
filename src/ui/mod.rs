@@ -229,6 +229,7 @@ fn render_help(frame: &mut Frame, area: Rect) {
         Line::from("  Click prog    Seek in track"),
         Line::from("  Click vol     Set volume"),
         Line::from("  Scroll        Navigate list"),
+        Line::from("  Scroll vol    Adjust volume"),
         Line::from(""),
         Line::from(Span::styled(
             "Press Esc or ? to close",
