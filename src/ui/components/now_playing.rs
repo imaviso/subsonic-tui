@@ -186,7 +186,7 @@ impl NowPlayingState {
 pub fn render_now_playing(frame: &mut Frame, area: Rect, state: &mut NowPlayingState) {
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Rgb(80, 80, 80)));
+        .border_style(Style::default().fg(Color::DarkGray));
 
     let inner = block.inner(area);
     frame.render_widget(block, area);
@@ -233,29 +233,26 @@ pub fn render_now_playing(frame: &mut Frame, area: Rect, state: &mut NowPlayingS
         ])
         .split(info_area);
 
-    // Row 1: Song title and artist (centered feel with left alignment)
+    // Row 1: Song title and artist
     if let Some(song) = &state.current_song {
         let star = if song.starred.is_some() { "󰓎 " } else { "" };
 
         let title_line = Line::from(vec![
-            Span::styled(star, Style::default().fg(Color::Rgb(255, 215, 0))), // Gold star
+            Span::styled(star, Style::default().fg(Color::Yellow)),
             Span::styled(
                 &song.title,
                 Style::default()
-                    .fg(Color::White)
+                    .fg(Color::Reset)
                     .add_modifier(Modifier::BOLD),
             ),
             Span::styled("  ", Style::default()),
-            Span::styled(
-                song.display_artist(),
-                Style::default().fg(Color::Rgb(180, 180, 180)),
-            ),
+            Span::styled(song.display_artist(), Style::default().fg(Color::Gray)),
         ]);
         frame.render_widget(Paragraph::new(title_line), chunks[0]);
     } else {
         let no_song = Line::from(vec![Span::styled(
             "No track playing",
-            Style::default().fg(Color::Rgb(100, 100, 100)),
+            Style::default().fg(Color::DarkGray),
         )]);
         frame.render_widget(Paragraph::new(no_song), chunks[0]);
     }
@@ -270,28 +267,30 @@ pub fn render_now_playing(frame: &mut Frame, area: Rect, state: &mut NowPlayingS
         ])
         .split(chunks[1]);
 
-    // Playback controls
-    let prev_color = Color::Rgb(180, 180, 180);
+    // Playback controls - use terminal accent color (Green) for active states
+    let inactive_color = Color::DarkGray;
+    let active_color = Color::Green;
+    let normal_color = Color::Gray;
+
     let play_color = if state.state == PlayerState::Playing {
-        Color::Rgb(30, 215, 96) // Spotify green
+        active_color
     } else {
-        Color::White
+        Color::Reset
     };
-    let next_color = Color::Rgb(180, 180, 180);
     let shuffle_color = if state.shuffle {
-        Color::Rgb(30, 215, 96)
+        active_color
     } else {
-        Color::Rgb(100, 100, 100)
+        inactive_color
     };
     let repeat_color = match state.repeat {
-        RepeatMode::Off => Color::Rgb(100, 100, 100),
-        RepeatMode::All | RepeatMode::One => Color::Rgb(30, 215, 96),
+        RepeatMode::Off => inactive_color,
+        RepeatMode::All | RepeatMode::One => active_color,
     };
 
     let controls = Line::from(vec![
-        Span::styled("󰒮 ", Style::default().fg(prev_color)),
+        Span::styled("󰒮 ", Style::default().fg(normal_color)),
         Span::styled(state.state_symbol(), Style::default().fg(play_color)),
-        Span::styled(" 󰒭 ", Style::default().fg(next_color)),
+        Span::styled(" 󰒭 ", Style::default().fg(normal_color)),
         Span::styled(state.shuffle_symbol(), Style::default().fg(shuffle_color)),
         Span::styled(" ", Style::default()),
         Span::styled(state.repeat_symbol(), Style::default().fg(repeat_color)),
@@ -302,14 +301,14 @@ pub fn render_now_playing(frame: &mut Frame, area: Rect, state: &mut NowPlayingS
     if let Some(song) = &state.current_song {
         let mut meta_spans = vec![Span::styled(
             song.display_album(),
-            Style::default().fg(Color::Rgb(150, 150, 150)),
+            Style::default().fg(Color::Gray),
         )];
 
         // Add year if available
         if let Some(year) = song.year {
             meta_spans.push(Span::styled(
                 format!(" ({})", year),
-                Style::default().fg(Color::Rgb(100, 100, 100)),
+                Style::default().fg(Color::DarkGray),
             ));
         }
 
@@ -328,7 +327,7 @@ pub fn render_now_playing(frame: &mut Frame, area: Rect, state: &mut NowPlayingS
         if !extra.is_empty() {
             meta_spans.push(Span::styled(
                 format!("  ·  {}", extra.join(" · ")),
-                Style::default().fg(Color::Rgb(80, 80, 80)),
+                Style::default().fg(Color::DarkGray),
             ));
         }
 
@@ -341,16 +340,16 @@ pub fn render_now_playing(frame: &mut Frame, area: Rect, state: &mut NowPlayingS
         Span::styled(
             state.volume_symbol(),
             Style::default().fg(if state.volume == 0 {
-                Color::Rgb(100, 100, 100)
+                Color::DarkGray
             } else {
-                Color::Rgb(180, 180, 180)
+                Color::Gray
             }),
         ),
         Span::styled(" ", Style::default()),
         vol_bar,
         Span::styled(
             format!(" {:>3}%", state.volume),
-            Style::default().fg(Color::Rgb(100, 100, 100)),
+            Style::default().fg(Color::DarkGray),
         ),
     ]);
     frame.render_widget(
@@ -377,8 +376,8 @@ fn render_progress_bar(frame: &mut Frame, area: Rect, state: &NowPlayingState) {
         .split(area);
 
     // Current time (left)
-    let current_time = Paragraph::new(state.position_string())
-        .style(Style::default().fg(Color::Rgb(150, 150, 150)));
+    let current_time =
+        Paragraph::new(state.position_string()).style(Style::default().fg(Color::Gray));
     frame.render_widget(current_time, chunks[0]);
 
     // Progress bar (center)
@@ -395,18 +394,18 @@ fn render_progress_bar(frame: &mut Frame, area: Rect, state: &NowPlayingState) {
         vec![
             Span::styled(
                 filled_char.repeat(filled_width.saturating_sub(1)),
-                Style::default().fg(Color::Rgb(30, 215, 96)), // Spotify green
+                Style::default().fg(Color::Magenta),
             ),
-            Span::styled(handle, Style::default().fg(Color::White)),
+            Span::styled(handle, Style::default().fg(Color::Reset)),
             Span::styled(
                 empty_char.repeat(empty_width),
-                Style::default().fg(Color::Rgb(60, 60, 60)),
+                Style::default().fg(Color::DarkGray),
             ),
         ]
     } else {
         vec![Span::styled(
             empty_char.repeat(bar_width as usize),
-            Style::default().fg(Color::Rgb(60, 60, 60)),
+            Style::default().fg(Color::DarkGray),
         )]
     };
 
@@ -414,23 +413,23 @@ fn render_progress_bar(frame: &mut Frame, area: Rect, state: &NowPlayingState) {
 
     // Total time (right)
     let total_time = Paragraph::new(format!(" {}", state.duration_string()))
-        .style(Style::default().fg(Color::Rgb(100, 100, 100)))
+        .style(Style::default().fg(Color::DarkGray))
         .alignment(Alignment::Right);
     frame.render_widget(total_time, chunks[2]);
 }
 
-/// Render a modern volume bar with gradient.
+/// Render a modern volume bar.
 fn render_volume_bar(volume: u8) -> Span<'static> {
     let bar_width = 10;
     let filled = (volume as usize * bar_width) / 100;
     let empty = bar_width - filled;
 
-    // Use different block characters for a smoother look
     let filled_str = "━".repeat(filled);
     let empty_str = "─".repeat(empty);
 
+    // Use Cyan for volume bar to differentiate from progress bar
     Span::styled(
         format!("{}{}", filled_str, empty_str),
-        Style::default().fg(Color::Rgb(30, 215, 96)),
+        Style::default().fg(Color::Cyan),
     )
 }
