@@ -110,6 +110,9 @@
         shellHook = ''
           echo "subsonic-tui development environment"
           echo "Rust version: $(rustc --version)"
+        ''
+        + pkgs.lib.optionalString pkgs.stdenv.isLinux ''
+          export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [pkgs.alsa-lib]}:$LD_LIBRARY_PATH"
         '';
       };
 
