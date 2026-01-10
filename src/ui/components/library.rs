@@ -655,8 +655,7 @@ fn render_artists_view(frame: &mut Frame, area: Rect, state: &mut LibraryState, 
             ],
         )
         .block(block)
-        .row_highlight_style(Style::default().bg(Color::DarkGray))
-        .highlight_symbol("▶ ");
+        .row_highlight_style(Style::default().bg(Color::DarkGray));
 
         frame.render_stateful_widget(table, area, &mut table_state);
         *state.artists_state.selected_mut() = table_state.selected();
@@ -703,8 +702,7 @@ fn render_artists_view(frame: &mut Frame, area: Rect, state: &mut LibraryState, 
             ],
         )
         .block(block)
-        .row_highlight_style(Style::default().bg(Color::DarkGray))
-        .highlight_symbol("▶ ");
+        .row_highlight_style(Style::default().bg(Color::DarkGray));
 
         frame.render_stateful_widget(table, area, &mut table_state);
         *state.artist_albums_state.selected_mut() = table_state.selected();
@@ -769,8 +767,7 @@ fn render_albums_view(frame: &mut Frame, area: Rect, state: &mut LibraryState, b
             ],
         )
         .block(block)
-        .row_highlight_style(Style::default().bg(Color::DarkGray))
-        .highlight_symbol("▶ ");
+        .row_highlight_style(Style::default().bg(Color::DarkGray));
 
         frame.render_stateful_widget(table, area, &mut table_state);
         *state.albums_state.selected_mut() = table_state.selected();
@@ -837,8 +834,7 @@ fn render_playlists_view(frame: &mut Frame, area: Rect, state: &mut LibraryState
             ],
         )
         .block(block)
-        .row_highlight_style(Style::default().bg(Color::DarkGray))
-        .highlight_symbol("▶ ");
+        .row_highlight_style(Style::default().bg(Color::DarkGray));
 
         frame.render_stateful_widget(table, area, &mut table_state);
         *state.playlists_state.selected_mut() = table_state.selected();
@@ -918,8 +914,7 @@ fn render_song_list(
         ],
     )
     .block(block)
-    .row_highlight_style(Style::default().bg(Color::DarkGray))
-    .highlight_symbol("▶ ");
+    .row_highlight_style(Style::default().bg(Color::DarkGray));
 
     frame.render_stateful_widget(table, area, &mut table_state);
 
@@ -980,8 +975,7 @@ fn render_genres_view(frame: &mut Frame, area: Rect, state: &mut LibraryState, b
             ],
         )
         .block(block)
-        .row_highlight_style(Style::default().bg(Color::DarkGray))
-        .highlight_symbol("▶ ");
+        .row_highlight_style(Style::default().bg(Color::DarkGray));
 
         frame.render_stateful_widget(table, area, &mut table_state);
         *state.genres_state.selected_mut() = table_state.selected();
@@ -1028,8 +1022,7 @@ fn render_genres_view(frame: &mut Frame, area: Rect, state: &mut LibraryState, b
             ],
         )
         .block(block)
-        .row_highlight_style(Style::default().bg(Color::DarkGray))
-        .highlight_symbol("▶ ");
+        .row_highlight_style(Style::default().bg(Color::DarkGray));
 
         frame.render_stateful_widget(table, area, &mut table_state);
         *state.genre_albums_state.selected_mut() = table_state.selected();
@@ -1096,8 +1089,7 @@ fn render_favorites_view(frame: &mut Frame, area: Rect, state: &mut LibraryState
 
         let artists_table = Table::new(artist_rows, [Constraint::Percentage(100)])
             .block(artists_block)
-            .row_highlight_style(Style::default().bg(Color::DarkGray))
-            .highlight_symbol("▶ ");
+            .row_highlight_style(Style::default().bg(Color::DarkGray));
 
         frame.render_stateful_widget(artists_table, columns[0], &mut artists_table_state);
         *state.favorites_artists_state.selected_mut() = artists_table_state.selected();
@@ -1150,8 +1142,7 @@ fn render_favorites_view(frame: &mut Frame, area: Rect, state: &mut LibraryState
             [Constraint::Percentage(60), Constraint::Percentage(40)],
         )
         .block(albums_block)
-        .row_highlight_style(Style::default().bg(Color::DarkGray))
-        .highlight_symbol("▶ ");
+        .row_highlight_style(Style::default().bg(Color::DarkGray));
 
         frame.render_stateful_widget(albums_table, columns[1], &mut albums_table_state);
         *state.favorites_albums_state.selected_mut() = albums_table_state.selected();
@@ -1212,8 +1203,7 @@ fn render_favorites_view(frame: &mut Frame, area: Rect, state: &mut LibraryState
             ],
         )
         .block(songs_block)
-        .row_highlight_style(Style::default().bg(Color::DarkGray))
-        .highlight_symbol("▶ ");
+        .row_highlight_style(Style::default().bg(Color::DarkGray));
 
         frame.render_stateful_widget(songs_table, columns[2], &mut songs_table_state);
         *state.favorites_songs_state.selected_mut() = songs_table_state.selected();
@@ -1260,8 +1250,7 @@ fn render_favorites_view(frame: &mut Frame, area: Rect, state: &mut LibraryState
             ],
         )
         .block(block)
-        .row_highlight_style(Style::default().bg(Color::DarkGray))
-        .highlight_symbol("▶ ");
+        .row_highlight_style(Style::default().bg(Color::DarkGray));
 
         frame.render_stateful_widget(table, area, &mut table_state);
         *state.artist_albums_state.selected_mut() = table_state.selected();
