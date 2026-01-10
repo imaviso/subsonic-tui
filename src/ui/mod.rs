@@ -227,6 +227,7 @@ fn render_help(frame: &mut Frame, area: Rect) {
         Line::from("  Double-click  Play item"),
         Line::from("  Click tab     Switch to tab"),
         Line::from("  Click prog    Seek in track"),
+        Line::from("  Click vol     Set volume"),
         Line::from("  Scroll        Navigate list"),
         Line::from(""),
         Line::from(Span::styled(
