@@ -32,13 +32,25 @@ pub fn render(frame: &mut Frame, app: &mut App) {
     // Store layout areas for mouse detection
     app.layout.tabs = main_chunks[0];
     app.layout.now_playing = main_chunks[2];
+
+    // Calculate album art offset for controls positioning
+    // Album art takes up space on the left when present
+    let now_playing_inner_height = main_chunks[2].height.saturating_sub(2); // minus borders
+    let has_album_art = app.now_playing.album_art.is_some() && app.now_playing.picker.is_some();
+    let art_width = if has_album_art {
+        (now_playing_inner_height * 2).min(8) // Same calculation as in now_playing.rs
+    } else {
+        0
+    };
+    let info_area_x = main_chunks[2].x + 1 + art_width; // +1 for border, +art_width for album art
+
     // Progress bar is at the bottom of now_playing area (row 3 = last content row)
     // New layout: row 0 = title, row 1 = controls, row 2 = progress bar
     // With border, progress bar is at y + 3
     app.layout.progress_bar = Rect {
-        x: main_chunks[2].x + 7, // Skip border + time display (6 chars)
+        x: info_area_x + 6,      // Skip time display (6 chars)
         y: main_chunks[2].y + 3, // Row 2 within now_playing (after top border)
-        width: main_chunks[2].width.saturating_sub(16), // Minus borders and time displays
+        width: main_chunks[2].width.saturating_sub(16 + art_width), // Minus borders, time displays, and art
         height: 1,
     };
     // Volume bar is at the right side of row 1 (controls row)
@@ -58,7 +70,7 @@ pub fn render(frame: &mut Frame, app: &mut App) {
     // Playback controls area: "󰒮 ▶ 󰒭 󰒟 󰑖" in first 14 chars of controls row
     // Layout: prev(2) + space(1) + play(1-2) + space(1) + next(2) + space(1) + shuffle(2) + space(1) + repeat(2)
     app.layout.controls = Rect {
-        x: main_chunks[2].x + 1, // +1 for left border
+        x: info_area_x,          // Start after album art
         y: main_chunks[2].y + 2, // Row 1 within now_playing (controls row)
         width: 14,
         height: 1,
