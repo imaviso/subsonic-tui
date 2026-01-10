@@ -280,23 +280,29 @@ impl App {
                     return Ok(());
                 }
 
-                // Check if click is on tabs
-                if y >= self.layout.tabs.y && y < self.layout.tabs.y + self.layout.tabs.height {
-                    // Calculate which tab was clicked
+                // Check if click is on tabs (inside the border, row 1 of the tab area)
+                if y == self.layout.tabs.y + 1 {
+                    // Account for left border (1 char) and calculate based on tab title positions
+                    // Tab format: " Title1 | Title2 | Title3 ..." with divider " | " (3 chars)
+                    let click_x = x.saturating_sub(self.layout.tabs.x + 1); // +1 for left border
+
                     let tabs = Tab::all();
-                    let tab_width = self.layout.tabs.width / tabs.len() as u16;
-                    if tab_width > 0 {
-                        let tab_index =
-                            ((x.saturating_sub(self.layout.tabs.x)) / tab_width) as usize;
-                        if tab_index < tabs.len() {
-                            let tab = tabs[tab_index];
+                    let mut pos: u16 = 0;
+                    for &tab in tabs {
+                        let title_len = tab.title().len() as u16;
+                        // Each tab takes: space + title + space = title_len + 2, then divider "|" + space
+                        let tab_width = title_len + 2; // " Title "
+
+                        if click_x >= pos && click_x < pos + tab_width {
                             self.library.tab = tab;
                             self.library.view_depth = 0;
                             self.focus = 0;
                             if tab == Tab::Favorites {
                                 self.library.favorites_section = 0;
                             }
+                            break;
                         }
+                        pos += tab_width + 1; // +1 for the "|" divider
                     }
                 }
                 // Check if click is on progress bar (for seeking)
