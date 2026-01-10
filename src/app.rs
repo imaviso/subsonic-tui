@@ -318,8 +318,9 @@ impl App {
                     let bar_width = 10u16; // 10 bar segments
                     if x >= bar_start && x < bar_start + bar_width {
                         let click_offset = x.saturating_sub(bar_start);
-                        // Each segment represents 10% volume, click position maps to 0-100
-                        let new_volume = ((click_offset + 1) * 10).min(100) as u8;
+                        // Map click position to 0-100% (clicking leftmost = 0, rightmost = 100)
+                        let new_volume =
+                            (((click_offset as u32 + 1) * 100) / bar_width as u32).min(100) as u8;
                         self.now_playing.volume = new_volume;
                         if let Some(player) = &self.player {
                             player.set_volume(new_volume as f32 / 100.0)?;
@@ -412,8 +413,8 @@ impl App {
                     && x >= self.layout.volume_bar.x
                     && x < self.layout.volume_bar.x + self.layout.volume_bar.width
                 {
-                    // Adjust volume: scroll up = increase, scroll down = decrease
-                    let change = if delta < 0 { 10i16 } else { -10i16 };
+                    // Adjust volume: scroll up = increase, scroll down = decrease (5% per scroll)
+                    let change = if delta < 0 { 5i16 } else { -5i16 };
                     let new_volume = (self.now_playing.volume as i16 + change).clamp(0, 100) as u8;
                     self.now_playing.volume = new_volume;
                     if let Some(player) = &self.player {
@@ -550,7 +551,7 @@ impl App {
             }
 
             Action::VolumeUp => {
-                let new_vol = (self.now_playing.volume as i32 + 10).min(100) as u8;
+                let new_vol = (self.now_playing.volume as i32 + 5).min(100) as u8;
                 self.now_playing.volume = new_vol;
                 if let Some(player) = &self.player {
                     player.set_volume(new_vol as f32 / 100.0)?;
@@ -558,7 +559,7 @@ impl App {
             }
 
             Action::VolumeDown => {
-                let new_vol = (self.now_playing.volume as i32 - 10).max(0) as u8;
+                let new_vol = (self.now_playing.volume as i32 - 5).max(0) as u8;
                 self.now_playing.volume = new_vol;
                 if let Some(player) = &self.player {
                     player.set_volume(new_vol as f32 / 100.0)?;
