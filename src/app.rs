@@ -161,7 +161,8 @@ impl App {
             }
         }
 
-        // Set initial volume
+        // Set initial volume from config
+        self.now_playing.volume = self.config.player.volume;
         if let Some(player) = &self.player {
             let _ = player.set_volume(self.config.player.volume as f32 / 100.0);
         }
