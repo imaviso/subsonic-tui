@@ -26,6 +26,8 @@ pub struct UiLayout {
     pub now_playing: Rect,
     /// Progress bar area within now playing
     pub progress_bar: Rect,
+    /// Volume bar area within now playing
+    pub volume_bar: Rect,
 }
 
 /// Main application state.
@@ -303,6 +305,25 @@ impl App {
                             break;
                         }
                         pos += tab_width + 1; // +1 for the "|" divider
+                    }
+                }
+                // Check if click is on volume bar
+                else if y == self.layout.volume_bar.y
+                    && x >= self.layout.volume_bar.x
+                    && x < self.layout.volume_bar.x + self.layout.volume_bar.width
+                {
+                    // Calculate volume based on click position within the bar
+                    // Volume bar is "[██████░░░░]" - 12 chars, but only middle 10 are the actual bar
+                    let bar_start = self.layout.volume_bar.x + 1; // Skip '['
+                    let bar_width = 10u16; // 10 bar segments
+                    if x >= bar_start && x < bar_start + bar_width {
+                        let click_offset = x.saturating_sub(bar_start);
+                        // Each segment represents 10% volume, click position maps to 0-100
+                        let new_volume = ((click_offset + 1) * 10).min(100) as u8;
+                        self.now_playing.volume = new_volume;
+                        if let Some(player) = &self.player {
+                            player.set_volume(new_volume as f32 / 100.0)?;
+                        }
                     }
                 }
                 // Check if click is on progress bar (for seeking)

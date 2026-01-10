@@ -39,6 +39,15 @@ pub fn render(frame: &mut Frame, app: &mut App) {
         width: main_chunks[2].width.saturating_sub(2),
         height: 1,
     };
+    // Volume bar is at the right side of the info line (row 1)
+    // Format: "pos / dur  shuf rep vol[██████░░░░]" - volume bar is last 12 chars
+    // info_chunks[2] has Length(36), positioned at right side of now_playing
+    app.layout.volume_bar = Rect {
+        x: main_chunks[2].x + main_chunks[2].width.saturating_sub(14), // 12 for bar + 1 border + 1 padding
+        y: main_chunks[2].y + 1, // Row 1 within now_playing (after top border)
+        width: 12,               // "[██████░░░░]" is 12 chars
+        height: 1,
+    };
 
     // Render tabs
     render_tabs(frame, main_chunks[0], app.library.tab);
