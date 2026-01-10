@@ -242,7 +242,17 @@ pub fn render_now_playing(frame: &mut Frame, area: Rect, state: &mut NowPlayingS
     // Song info
     if let Some(song) = &state.current_song {
         let star_indicator = if song.starred.is_some() { "󰓎 " } else { "" };
-        let info = Line::from(vec![
+
+        // Build optional metadata parts
+        let year_str = song.year.map(|y| y.to_string()).unwrap_or_default();
+        let genre_str = song.genre.as_deref().unwrap_or("");
+        let bitrate_str = song
+            .bit_rate
+            .map(|b| format!("{}kbps", b))
+            .unwrap_or_default();
+        let track_str = song.track.map(|t| format!("#{}", t)).unwrap_or_default();
+
+        let mut spans = vec![
             Span::styled(star_indicator, Style::default().fg(Color::Yellow)),
             Span::styled(
                 &song.title,
@@ -254,7 +264,37 @@ pub fn render_now_playing(frame: &mut Frame, area: Rect, state: &mut NowPlayingS
             Span::styled(song.display_artist(), Style::default().fg(Color::Cyan)),
             Span::styled(" • ", Style::default().fg(Color::DarkGray)),
             Span::styled(song.display_album(), Style::default().fg(Color::Yellow)),
-        ]);
+        ];
+
+        // Add year if available
+        if !year_str.is_empty() {
+            spans.push(Span::styled(
+                format!(" ({})", year_str),
+                Style::default().fg(Color::DarkGray),
+            ));
+        }
+
+        // Add separator and metadata group
+        let mut meta_parts: Vec<&str> = Vec::new();
+        if !track_str.is_empty() {
+            meta_parts.push(&track_str);
+        }
+        if !genre_str.is_empty() {
+            meta_parts.push(genre_str);
+        }
+        if !bitrate_str.is_empty() {
+            meta_parts.push(&bitrate_str);
+        }
+
+        if !meta_parts.is_empty() {
+            spans.push(Span::styled(" │ ", Style::default().fg(Color::DarkGray)));
+            spans.push(Span::styled(
+                meta_parts.join(" • "),
+                Style::default().fg(Color::DarkGray),
+            ));
+        }
+
+        let info = Line::from(spans);
         let info_para = Paragraph::new(info);
         frame.render_widget(info_para, info_chunks[1]);
     } else {
