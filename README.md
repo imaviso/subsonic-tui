@@ -13,7 +13,7 @@ Built with Rust and [ratatui](https://github.com/ratatui-org/ratatui).
 - Star/unstar tracks
 - Scrobbling support
 - Vim-style keyboard navigation
-- Mouse support
+- Mouse support (wip)
 
 ## Installation
 
